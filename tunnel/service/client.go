@@ -56,7 +56,6 @@ func (c *Client) upstream() error {
 	defer conn.Close()
 	c.Reader = bufio.NewReader(conn)
 	c.Conn = tunnel.SetConnectTimeout(conn, 30*time.Second, 10*time.Second)
-	// 上报
 	err = c.Register()
 	if err != nil {
 		return err
@@ -65,6 +64,21 @@ func (c *Client) upstream() error {
 	return c.ConnectLoop()
 }
 
+// Register service
+func (c *Client) Register() error {
+	bytes, err := json.Marshal(bridge.NodeInfo{
+		Group:  c.Group,
+		Name:   c.Name,
+		Method: tunnel.MethodRegister,
+	})
+	if err != nil {
+		return errors.Wrap(err, "序列化节点信息失败")
+	}
+	_, _ = c.Conn.Write(append(bytes, '\n'))
+	return nil
+}
+
+// Async write heart
 func (c *Client) WriteHeart() {
 	for {
 		select {
@@ -79,6 +93,7 @@ func (c *Client) WriteHeart() {
 	}
 }
 
+// Wait a task with loop
 func (c *Client) ConnectLoop() error {
 	for {
 		message, isHeart, err := c.ReadTask()
@@ -93,29 +108,65 @@ func (c *Client) ConnectLoop() error {
 	}
 }
 
-func (c *Client) Connect(message []byte) {
-	log.Info("读取任务成功 ", string(message))
-	conn, err := net.Dial("tcp", c.Addr)
+// Read a task from connect
+func (c *Client) ReadTask() (message []byte, isHeart bool, err error) {
+	bytes, err := c.Reader.ReadBytes('\n')
 	if err != nil {
-		log.Error("Connect fail", string(message))
+		err = errors.Wrap(err, "读取任务失败")
 		return
 	}
-	defer conn.Close()
+	if len(bytes) == 0 || (len(bytes) == 1 && bytes[0] == 10) {
+		isHeart = true
+		return
+	}
+	err = json.Unmarshal(bytes, new(bridge.Message))
+	if err != nil {
+		err = errors.Wrap(err, "读取数据格式有误"+string(bytes))
+		return
+	}
+	message = bytes[:len(bytes)-1]
+	return
+}
+
+// Connect event
+func (c *Client) Connect(messageBytes []byte) {
+	log.Info("读取任务成功", string(messageBytes))
 	bytes, err := json.Marshal(bridge.NodeInfo{
 		Group:      c.Group,
 		Name:       c.Name,
 		Method:     tunnel.MethodConn,
-		Attachment: message,
+		Attachment: messageBytes,
 	})
 	if err != nil {
-		log.Warn("序列化节点信息失败")
+		log.Error("序列化节点信息失败")
 		return
 	}
+
+	message := new(bridge.Message)
+	err = json.Unmarshal(messageBytes, message)
+	if err != nil {
+		log.Error("反序列化节点信息失败")
+		return
+	}
+
+	conn, err := net.Dial("tcp", message.Address)
+	if err != nil {
+		log.Error("Connect fail", string(messageBytes))
+		return
+	}
+	defer conn.Close()
+
+	// connect task
 	_, err = conn.Write(append(bytes, '\n'))
 	if err != nil {
 		log.Warn("代理上报失败")
 		return
 	}
+
+	proxyConnect(conn)
+}
+
+func proxyConnect(conn net.Conn) {
 	// cmd
 	req, err := proxy.ParseCmdRequest(conn)
 	if err != nil {
@@ -147,36 +198,4 @@ func (c *Client) Connect(message []byte) {
 	if err != nil {
 		log.Error(err)
 	}
-}
-
-func (c *Client) ReadTask() (message []byte, isHeart bool, err error) {
-	bytes, err := c.Reader.ReadBytes('\n')
-	if err != nil {
-		err = errors.Wrap(err, "读取任务失败")
-		return
-	}
-	if len(bytes) == 0 || (len(bytes) == 1 && bytes[0] == 10) {
-		isHeart = true
-		return
-	}
-	err = json.Unmarshal(bytes, new(bridge.Message))
-	if err != nil {
-		err = errors.Wrap(err, "读取数据格式有误"+string(bytes))
-		return
-	}
-	message = bytes[:len(bytes)-1]
-	return
-}
-
-func (c *Client) Register() error {
-	bytes, err := json.Marshal(bridge.NodeInfo{
-		Group:  c.Group,
-		Name:   c.Name,
-		Method: tunnel.MethodRegister,
-	})
-	if err != nil {
-		return errors.Wrap(err, "序列化节点信息失败")
-	}
-	_, _ = c.Conn.Write(append(bytes, '\n'))
-	return nil
 }
