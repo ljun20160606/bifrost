@@ -21,6 +21,7 @@ type Caller interface {
 func NewCaller(bridgeAddress string) Caller {
 	return &NodeCaller{
 		bridgeAddr: bridgeAddress,
+		group:      NewGroupCenter(),
 	}
 }
 
@@ -30,13 +31,13 @@ type NodeCaller struct {
 	// 任务锁
 	mutex sync.RWMutex
 	// 所有通信中心
-	nodeCenter sync.Map
+	group Group
 	// 任务中心
 	taskCenter sync.Map
 }
 
 func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
-	value, has := n.nodeCenter.Load(auth.Username)
+	listener, has := n.group.Select(auth.Username, auth.Password)
 	if !has {
 		return nil, errors.Errorf("不存在相同组 %v", auth.Username)
 	}
@@ -45,7 +46,7 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 	channel := NewChannel(10 * time.Second)
 	n.taskCenter.Store(taskId, channel)
 	defer n.taskCenter.Delete(taskId)
-	ok := value.(*NodeListener).Notify(&Message{
+	ok := listener.Notify(&Message{
 		TaskId:  taskId,
 		Address: n.bridgeAddr,
 	})
@@ -63,18 +64,13 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 
 func (n *NodeCaller) Register(node *Node) error {
 	nodeListener := NewNodeListener(node, func(listener *NodeListener) {
-		n.mutex.Lock()
-		n.nodeCenter.Delete(listener.Group)
-		n.mutex.Unlock()
+		log.WithField("service", listener.NodeInfo).Infof("Unregister service")
+		n.group.Delete(node.NodeInfo)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	_, has := n.nodeCenter.Load(nodeListener.Group)
-	if has {
-		nodeListener.Close()
-		return errors.Errorf("存在相同组，无法再注册 %v", nodeListener.Group)
-	}
-	n.nodeCenter.Store(nodeListener.Group, nodeListener)
+	log.WithField("service", nodeListener.NodeInfo).Infof("Register service")
+	n.group.Register(nodeListener)
 	nodeListener.Start()
 	return nil
 }

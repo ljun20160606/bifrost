@@ -86,7 +86,7 @@ func (s *NodeListener) WriteLoop() {
 }
 
 func (s *NodeListener) ReadHeart() {
-	log.Infof("%v 开始心跳", s.Group)
+	log.Infof("%v %v 开始心跳", s.Group, s.Name)
 	s.Node.Conn = tunnel.SetConnectTimeout(s.Node.Conn, 30*time.Second, 10*time.Second)
 	heart := make([]byte, 1)
 	for {

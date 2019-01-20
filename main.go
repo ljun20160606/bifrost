@@ -66,6 +66,7 @@ var (
 
 func init() {
 	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.JSONFormatter{})
 	bridgeCmd.Flags().StringP("addr", "a", ":7000", "网桥地址")
 	bridgeCmd.Flags().StringP("proxyAddr", "p", ":8888", "网桥代理地址")
 

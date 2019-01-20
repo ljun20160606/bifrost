@@ -35,3 +35,9 @@ $ bifrost proxy
 # 了解帮助信息
 $ bifrost -h
 ```
+
+## 功能说明
+
+### 负载均衡
+
+允许使用相同组注册到bridge，轮询策略选择service

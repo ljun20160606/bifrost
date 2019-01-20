@@ -13,6 +13,8 @@ const (
 )
 
 type NodeInfo struct {
+	// id
+	Id string `json:"id"`
 	// account
 	Group string `json:"group"`
 	// password
@@ -37,13 +39,13 @@ type Node struct {
 func NewNode(conn net.Conn) (*Node, error) {
 	infoBytes, err := bufio.NewReader(conn).ReadBytes('\n')
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, errors.Wrap(err, "node.info长度有误")
 	}
 	nodeInfo := new(NodeInfo)
 	err = json.Unmarshal(infoBytes, nodeInfo)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, errors.Wrap(err, "解析node.info失败")
 	}
 	node := new(Node)

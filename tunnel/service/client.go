@@ -8,12 +8,15 @@ import (
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"net"
 	"time"
 )
 
 type Client struct {
+	// ClientId
+	Id string
 	// account
 	Group string
 	// password
@@ -27,7 +30,9 @@ type Client struct {
 }
 
 func NewClient(group, name, addr string) *Client {
+	uuids, _ := uuid.NewV4()
 	return &Client{
+		Id:    uuids.String(),
 		Group: group,
 		Name:  name,
 		Addr:  addr,
@@ -67,6 +72,7 @@ func (c *Client) upstream() error {
 // Register service
 func (c *Client) Register() error {
 	bytes, err := json.Marshal(bridge.NodeInfo{
+		Id:     c.Id,
 		Group:  c.Group,
 		Name:   c.Name,
 		Method: tunnel.MethodRegister,
@@ -80,6 +86,7 @@ func (c *Client) Register() error {
 
 // Async write heart
 func (c *Client) WriteHeart() {
+	log.Info("上报心跳")
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -88,7 +95,6 @@ func (c *Client) WriteHeart() {
 				log.Error("上报心跳失败", err)
 				return
 			}
-			log.Info("上报心跳")
 		}
 	}
 }
