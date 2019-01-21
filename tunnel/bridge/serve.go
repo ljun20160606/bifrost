@@ -1,11 +1,13 @@
 package bridge
 
 import (
+	"github.com/hashicorp/yamux"
 	"github.com/ljun20160606/bifrost/net/socks"
 	"github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net"
 )
 
@@ -58,26 +60,45 @@ func (s *Server) ListenAndServer() error {
 
 // 处理通信
 func (s *Server) HandleCommunication(conn net.Conn) {
-	node, err := NewNode(conn)
+	// Setup server side of yamux
+	session, err := yamux.Server(conn, nil)
 	if err != nil {
-		log.Error(err)
+		log.Error("使用多路复用失败", err)
 		return
 	}
-	switch node.Method {
-	case tunnel.MethodRegister:
-		err = s.Caller.Register(node)
+
+	for {
+		stream, err := session.Accept()
 		if err != nil {
-			log.Error(err)
+			_ = conn.Close()
+			if err != io.EOF {
+				log.Error("会话接收任务失败", err)
+			}
 			return
 		}
-	case tunnel.MethodConn:
-		err = s.Caller.Connect(node)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-	default:
-		panic(errors.Errorf("method %v not support", node.Method))
+		go func() {
+			node, err := NewNode(stream)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			switch node.Method {
+			case tunnel.MethodRegister:
+				err = s.Caller.Register(node)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+			case tunnel.MethodConn:
+				err = s.Caller.Connect(node)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+			default:
+				panic(errors.Errorf("method %v not support", node.Method))
+			}
+		}()
 	}
 }
 

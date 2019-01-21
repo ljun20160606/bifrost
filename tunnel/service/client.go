@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/hashicorp/yamux"
 	"github.com/ljun20160606/bifrost/net/socks"
 	"github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
@@ -10,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"time"
 )
@@ -23,10 +25,12 @@ type Client struct {
 	Name string
 	// bridge address
 	Addr string
-	// conn
-	Conn net.Conn
+	// writer
+	Writer io.Writer
 	// reader
 	Reader *bufio.Reader
+	// session for mux
+	Session *yamux.Session
 }
 
 func NewClient(group, name, addr string) *Client {
@@ -59,8 +63,17 @@ func (c *Client) upstream() error {
 		return err
 	}
 	defer conn.Close()
-	c.Reader = bufio.NewReader(conn)
-	c.Conn = tunnel.SetConnectTimeout(conn, 30*time.Second, 10*time.Second)
+	// mux
+	c.Session, _ = yamux.Client(conn, nil)
+	stream, err := c.Session.OpenStream()
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	// read
+	c.Reader = bufio.NewReader(stream)
+	// write
+	c.Writer = tunnel.SetConnectTimeout(stream, 30*time.Second, 10*time.Second)
 	err = c.Register()
 	if err != nil {
 		return err
@@ -80,7 +93,7 @@ func (c *Client) Register() error {
 	if err != nil {
 		return errors.Wrap(err, "序列化节点信息失败")
 	}
-	_, _ = c.Conn.Write(append(bytes, '\n'))
+	_, _ = c.Writer.Write(append(bytes, '\n'))
 	return nil
 }
 
@@ -90,7 +103,7 @@ func (c *Client) WriteHeart() {
 	for {
 		select {
 		case <-time.After(2 * time.Second):
-			_, err := c.Conn.Write([]byte{'\n'})
+			_, err := c.Writer.Write([]byte{'\n'})
 			if err != nil {
 				log.Error("上报心跳失败", err)
 				return
@@ -155,7 +168,8 @@ func (c *Client) Connect(messageBytes []byte) {
 		return
 	}
 
-	conn, err := net.Dial("tcp", message.Address)
+	conn, err := c.Session.Open()
+	//conn, err := net.Dial("tcp", message.Address)
 	if err != nil {
 		log.Error("Connect fail", string(messageBytes))
 		return

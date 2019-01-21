@@ -95,10 +95,10 @@ func (s *NodeListener) ReadHeart() {
 		default:
 			_, err := s.Read(heart)
 			if err != nil {
-				if err != io.EOF {
-					log.Errorf("%v 心跳错误 %v", s.Group, err)
+				if err == io.EOF {
+					log.Infof("%v 连接断开", s.Group)
 				} else {
-					log.Errorf("%v 断开", s.Group)
+					log.Errorf("%v 心跳错误 %v", s.Group, err)
 				}
 				s.Close()
 				// 从注册列表中删除自己

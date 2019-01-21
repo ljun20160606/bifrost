@@ -41,3 +41,7 @@ $ bifrost -h
 ### 负载均衡
 
 允许使用相同组注册到bridge，轮询策略选择service
+
+### 多路复用
+
+bridge和service通信使用多路复用策略
