@@ -12,37 +12,48 @@ import (
 type NodeListener struct {
 	*Node
 	// 任务读写窗口
-	rw chan []byte
-
+	sendCh chan []byte
+	// 异常处理
 	errFunc func(*NodeListener)
 }
 
 // 解析节点信息
 func NewNodeListener(node *Node, errFunc func(*NodeListener)) *NodeListener {
-	return &NodeListener{Node: node, rw: make(chan []byte, 64), errFunc: errFunc}
+	return &NodeListener{Node: node, sendCh: make(chan []byte, 64), errFunc: errFunc}
 }
 
 func (s *NodeListener) Start() {
-	go s.ReadHeart()
-	go s.WriteLoop()
+	go s.keepAlive()
+	go s.send()
 }
 
-func (s *NodeListener) Notify(message *Message) bool {
-	select {
-	case <-s.Context.Done():
-		return false
-	default:
+// Send heart in a loop
+func (s *NodeListener) keepAlive() {
+	s.Logger.Info("Ready keepAlive")
+	s.Node.Conn = tunnel.SetConnectTimeout(s.Node.Conn, 30*time.Second, 10*time.Second)
+	heart := make([]byte, 1)
+	for {
+		select {
+		case <-s.Context.Done():
+		default:
+			_, err := s.Read(heart)
+			if err != nil {
+				if err == io.EOF {
+					s.Logger.Info("连接断开")
+				} else {
+					s.Logger.Error("心跳错误 ", err)
+				}
+				s.Close()
+				// 从注册列表中删除自己
+				s.errFunc(s)
+				return
+			}
+		}
 	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		return false
-	}
-	log.Info("通知任务", string(data))
-	s.rw <- append(data, '\n')
-	return true
 }
 
-func (s *NodeListener) WriteLoop() {
+// Send data in a loop
+func (s *NodeListener) send() {
 	buf := bytes.NewBuffer(nil)
 	for {
 		buf.Reset()
@@ -52,7 +63,7 @@ func (s *NodeListener) WriteLoop() {
 		select {
 		case <-s.Context.Done():
 			return
-		case data = <-s.rw:
+		case data = <-s.sendCh:
 			// 标记为已写
 			wrote = true
 		case <-time.After(time.Second):
@@ -64,7 +75,7 @@ func (s *NodeListener) WriteLoop() {
 	COMPOSITE:
 		for {
 			select {
-			case data = <-s.rw:
+			case data = <-s.sendCh:
 				if !wrote {
 					buf.Reset()
 				}
@@ -85,29 +96,23 @@ func (s *NodeListener) WriteLoop() {
 	}
 }
 
-func (s *NodeListener) ReadHeart() {
-	log.Infof("%v %v 开始心跳", s.Group, s.Name)
-	s.Node.Conn = tunnel.SetConnectTimeout(s.Node.Conn, 30*time.Second, 10*time.Second)
-	heart := make([]byte, 1)
-	for {
-		select {
-		case <-s.Context.Done():
-		default:
-			_, err := s.Read(heart)
-			if err != nil {
-				if err == io.EOF {
-					log.Infof("%v 连接断开", s.Group)
-				} else {
-					log.Errorf("%v 心跳错误 %v", s.Group, err)
-				}
-				s.Close()
-				// 从注册列表中删除自己
-				s.errFunc(s)
-				return
-			}
-		}
+// Send a Task
+func (s *NodeListener) Notify(message *Message) bool {
+	select {
+	case <-s.Context.Done():
+		return false
+	default:
 	}
+	data, err := json.Marshal(message)
+	if err != nil {
+		return false
+	}
+	s.Logger.Info("通知任务", string(data))
+	s.sendCh <- append(data, '\n')
+	return true
 }
+
+// Cancel context and close conn
 func (s *NodeListener) Close() {
 	s.Cancel()
 	_ = s.Conn.Close()

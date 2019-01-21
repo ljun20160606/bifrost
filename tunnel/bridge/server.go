@@ -82,17 +82,18 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 				log.Error(err)
 				return
 			}
+			log.WithField("service", node.NodeInfo).Info("")
 			switch node.Method {
 			case tunnel.MethodRegister:
 				err = s.Caller.Register(node)
 				if err != nil {
-					log.Error(err)
+					node.Logger.Error(err)
 					return
 				}
 			case tunnel.MethodConn:
 				err = s.Caller.Connect(node)
 				if err != nil {
-					log.Error(err)
+					node.Logger.Error(err)
 					return
 				}
 			default:
@@ -109,18 +110,18 @@ func (s *Server) HandleProxy(conn net.Conn) {
 		log.Error(err)
 		return
 	}
+	withField := log.WithField("group", auth.Username).WithField("name", auth.Password)
 	node, err := s.Caller.Call(auth)
 	if err != nil {
 		_ = conn.Close()
-		log.Error(err)
+		withField.Error(err)
 		return
 	}
-	log.Info("Auth success username:", auth.Username)
-	log.Info("Transport start:", auth.Username)
+	withField.Info("Auth success and transport start")
 	err = proxy.Transport(node.Conn, conn)
 	if err != nil {
-		log.Error(err)
+		withField.Error(err)
 		return
 	}
-	log.Info("代理结束:", auth.Username)
+	withField.Info("Transport end")
 }

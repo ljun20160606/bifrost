@@ -78,7 +78,7 @@ func (c *Client) upstream() error {
 	if err != nil {
 		return err
 	}
-	go c.WriteHeart()
+	go c.keepAlive()
 	return c.ConnectLoop()
 }
 
@@ -98,7 +98,7 @@ func (c *Client) Register() error {
 }
 
 // Async write heart
-func (c *Client) WriteHeart() {
+func (c *Client) keepAlive() {
 	log.Info("上报心跳")
 	for {
 		select {
@@ -115,7 +115,7 @@ func (c *Client) WriteHeart() {
 // Wait a task with loop
 func (c *Client) ConnectLoop() error {
 	for {
-		message, isHeart, err := c.ReadTask()
+		message, isHeart, err := c.readTask()
 		if err != nil {
 			log.Error(err)
 			return err
@@ -128,7 +128,7 @@ func (c *Client) ConnectLoop() error {
 }
 
 // Read a task from connect
-func (c *Client) ReadTask() (message []byte, isHeart bool, err error) {
+func (c *Client) readTask() (message []byte, isHeart bool, err error) {
 	bytes, err := c.Reader.ReadBytes('\n')
 	if err != nil {
 		err = errors.Wrap(err, "读取任务失败")
@@ -183,10 +183,10 @@ func (c *Client) Connect(messageBytes []byte) {
 		return
 	}
 
-	proxyConnect(conn)
+	serveSocks5(conn)
 }
 
-func proxyConnect(conn net.Conn) {
+func serveSocks5(conn net.Conn) {
 	// cmd
 	req, err := proxy.ParseCmdRequest(conn)
 	if err != nil {

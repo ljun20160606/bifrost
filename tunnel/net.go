@@ -20,15 +20,15 @@ type timeoutedNetConn struct {
 }
 
 func (t *timeoutedNetConn) Read(b []byte) (n int, err error) {
-	t.SetDeadline(time.Now().Add(time.Duration(t.ReadTimeout)))
+	_ = t.SetDeadline(time.Now().Add(time.Duration(t.ReadTimeout)))
 	i, err := t.Conn.Read(b)
-	t.SetDeadline(time.Time{})
+	_ = t.SetDeadline(time.Time{})
 	return i, err
 }
 
 func (t *timeoutedNetConn) Write(b []byte) (n int, err error) {
-	t.SetDeadline(time.Now().Add(time.Duration(t.WriteTimeout)))
+	_ = t.SetDeadline(time.Now().Add(time.Duration(t.WriteTimeout)))
 	i, err := t.Conn.Write(b)
-	t.SetDeadline(time.Time{})
+	_ = t.SetDeadline(time.Time{})
 	return i, err
 }

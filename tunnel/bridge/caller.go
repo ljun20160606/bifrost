@@ -36,6 +36,7 @@ type NodeCaller struct {
 	taskCenter sync.Map
 }
 
+// Lookup a node that group and name is same with username and password
 func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 	listener, has := n.group.Select(auth.Username, auth.Password)
 	if !has {
@@ -62,19 +63,21 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 	return node, nil
 }
 
+// Event register
 func (n *NodeCaller) Register(node *Node) error {
 	nodeListener := NewNodeListener(node, func(listener *NodeListener) {
-		log.WithField("service", listener.NodeInfo).Infof("Unregister service")
+		listener.Logger.Info("Unregister service")
 		n.group.Delete(node.NodeInfo)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	log.WithField("service", nodeListener.NodeInfo).Infof("Register service")
+	node.Logger.Info("Register service")
 	n.group.Register(nodeListener)
 	nodeListener.Start()
 	return nil
 }
 
+// Event connect
 func (n *NodeCaller) Connect(node *Node) error {
 	slave, err := NewNodeSlave(node)
 	if err != nil {

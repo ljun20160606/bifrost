@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"net"
 )
 
@@ -34,6 +35,8 @@ type Node struct {
 	Cancel context.CancelFunc
 	// node info
 	*NodeInfo
+	// logger
+	Logger *logrus.Entry
 }
 
 func NewNode(conn net.Conn) (*Node, error) {
@@ -52,5 +55,6 @@ func NewNode(conn net.Conn) (*Node, error) {
 	node.NodeInfo = nodeInfo
 	node.Context, node.Cancel = context.WithCancel(context.Background())
 	node.Conn = conn
+	node.Logger = logrus.WithField("id", nodeInfo.Id)
 	return node, nil
 }
