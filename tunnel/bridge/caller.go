@@ -1,17 +1,15 @@
 package bridge
 
 import (
-	"github.com/ljun20160606/bifrost/net/socks"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
 
 type Caller interface {
 	// 拉取一个可用的代理节点
-	Call(auth *socks.UsernamePassword) (*Node, error)
+	Call(user, password string) (*Node, error)
 	// 注册服务节点
 	Register(node *Node) error
 	// 处理上报的代理节点
@@ -37,10 +35,10 @@ type NodeCaller struct {
 }
 
 // Lookup a node that group and name is same with username and password
-func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
-	listener, has := n.group.Select(auth.Username, auth.Password)
+func (n *NodeCaller) Call(user, password string) (*Node, error) {
+	listener, has := n.group.Select(user, password)
 	if !has {
-		return nil, errors.Errorf("不存在相同组 %v", auth.Username)
+		return nil, errors.Errorf("不存在相同组 %v", user)
 	}
 	uuids, _ := uuid.NewV4()
 	taskId := uuids.String()
@@ -52,9 +50,8 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 		Address: n.bridgeAddr,
 	})
 	if !ok {
-		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", auth.Username)
+		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", user)
 	}
-	log.Info("等待任务响应", auth.Username)
 	ret := channel.Get()
 	if ret == nil {
 		return nil, errors.New("等待任务超时")

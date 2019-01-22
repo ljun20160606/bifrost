@@ -1,14 +1,20 @@
 package bridge
 
 import (
+	"context"
 	"github.com/hashicorp/yamux"
-	"github.com/ljun20160606/bifrost/net/socks"
 	"github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
+	"github.com/ljun20160606/go-socks5"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
+)
+
+const (
+	nodeKey = "node"
+	logKey  = "log"
 )
 
 var (
@@ -22,6 +28,8 @@ type Server struct {
 	ProxyServer *tunnel.Server
 	// 消息中心
 	Caller Caller
+	// socks5
+	SocksServer *socks5.Server
 }
 
 func NewServer(bridgeAddr, proxyAddr string) *Server {
@@ -36,6 +44,9 @@ func NewServer(bridgeAddr, proxyAddr string) *Server {
 	}
 	_, port, _ := net.SplitHostPort(bridgeAddr)
 	server.Caller = NewCaller(internet.String() + ":" + port)
+	server.SocksServer, _ = socks5.New(&socks5.Config{
+		Credentials: server,
+	})
 	return server
 }
 
@@ -60,6 +71,7 @@ func (s *Server) ListenAndServer() error {
 
 // 处理通信
 func (s *Server) HandleCommunication(conn net.Conn) {
+	defer conn.Close()
 	// Setup server side of yamux
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
@@ -70,7 +82,6 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 	for {
 		stream, err := session.Accept()
 		if err != nil {
-			_ = conn.Close()
 			if err != io.EOF {
 				log.Error("会话接收任务失败", err)
 			}
@@ -82,9 +93,9 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 				log.Error(err)
 				return
 			}
-			log.WithField("service", node.NodeInfo).Info("")
 			switch node.Method {
 			case tunnel.MethodRegister:
+				log.WithField("service", node.NodeInfo).Info("")
 				err = s.Caller.Register(node)
 				if err != nil {
 					node.Logger.Error(err)
@@ -104,24 +115,32 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 }
 
 func (s *Server) HandleProxy(conn net.Conn) {
-	auth, err := socks.AuthRequired(conn, conn)
+	defer conn.Close()
+	withIp := log.WithField("ip", conn.RemoteAddr().String())
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, logKey, withIp)
+	ctx, _, err := s.SocksServer.Authenticate(ctx, conn, conn)
 	if err != nil {
-		_ = conn.Close()
-		log.Error(err)
+		withIp.Error("校验失败", err)
 		return
 	}
-	withField := log.WithField("group", auth.Username).WithField("name", auth.Password)
-	node, err := s.Caller.Call(auth)
+
+	err = proxy.Transport(ctx.Value(nodeKey).(*Node).Conn, conn)
 	if err != nil {
-		_ = conn.Close()
-		withField.Error(err)
 		return
 	}
-	withField.Info("Auth success and transport start")
-	err = proxy.Transport(node.Conn, conn)
+}
+
+// valid username password and call service
+func (s *Server) Valid(ctx context.Context, user, password string) (context.Context, bool) {
+	withField := ctx.Value(logKey).(*log.Entry).
+		WithField("group", user).WithField("name", password)
+	node, err := s.Caller.Call(user, password)
 	if err != nil {
-		withField.Error(err)
-		return
+		withField.Error("Auth fail")
+		return ctx, false
 	}
-	withField.Info("Transport end")
+	withField.Info("Auth success")
+	ctx = context.WithValue(ctx, nodeKey, node)
+	return ctx, true
 }
