@@ -1,20 +1,23 @@
 package bridge
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/ljun20160606/bifrost/tunnel"
+)
 
 // A info of service when service connect bridge
 type NodeSlave struct {
-	*Node
+	*tunnel.Session
 	// 任务信息
 	Message *Message
 }
 
-func NewNodeSlave(node *Node) (*NodeSlave, error) {
+func NewNodeSlave(session *tunnel.Session) (*NodeSlave, error) {
 	message := new(Message)
-	err := json.Unmarshal(node.Attachment, message)
+	err := json.Unmarshal(session.Attachment, message)
 	if err != nil {
-		_ = node.Close()
+		_ = session.Close()
 		return nil, err
 	}
-	return &NodeSlave{Node: node, Message: message}, nil
+	return &NodeSlave{Session: session, Message: message}, nil
 }

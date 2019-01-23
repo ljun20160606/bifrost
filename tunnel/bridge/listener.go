@@ -10,7 +10,7 @@ import (
 )
 
 type NodeListener struct {
-	*Node
+	*tunnel.Session
 	// 任务读写窗口
 	sendCh chan []byte
 	// 异常处理
@@ -18,8 +18,8 @@ type NodeListener struct {
 }
 
 // 解析节点信息
-func NewNodeListener(node *Node, errFunc func(*NodeListener)) *NodeListener {
-	return &NodeListener{Node: node, sendCh: make(chan []byte, 64), errFunc: errFunc}
+func NewNodeListener(session *tunnel.Session, errFunc func(*NodeListener)) *NodeListener {
+	return &NodeListener{Session: session, sendCh: make(chan []byte, 64), errFunc: errFunc}
 }
 
 func (s *NodeListener) Start() {
@@ -30,7 +30,7 @@ func (s *NodeListener) Start() {
 // Send heart in a loop
 func (s *NodeListener) keepAlive() {
 	s.Logger.Info("Ready keepAlive")
-	s.Node.Conn = tunnel.SetConnectTimeout(s.Node.Conn, 30*time.Second, 10*time.Second)
+	s.Session.Conn = tunnel.SetConnectTimeout(s.Session.Conn, 30*time.Second, 10*time.Second)
 	heart := make([]byte, 1)
 	for {
 		select {
@@ -67,7 +67,7 @@ func (s *NodeListener) send() {
 			// 标记为已写
 			wrote = true
 		case <-time.After(time.Second):
-			data = []byte{Delim}
+			data = []byte{tunnel.Delim}
 		}
 		buf.Write(data)
 		// 计数
@@ -108,7 +108,7 @@ func (s *NodeListener) Notify(message *Message) bool {
 		return false
 	}
 	s.Logger.Info("通知任务", string(data))
-	s.sendCh <- append(data, '\n')
+	s.sendCh <- append(data, tunnel.Delim)
 	return true
 }
 

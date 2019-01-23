@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	nodeKey = "node"
-	logKey  = "log"
+	sessionKey = "session"
+	logKey     = "log"
 )
 
 var (
@@ -88,27 +88,27 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 			return
 		}
 		go func() {
-			node, err := NewNode(stream)
+			tunnelSession, err := tunnel.NewSession(stream)
 			if err != nil {
 				log.Error(err)
 				return
 			}
-			switch node.Method {
+			switch tunnelSession.Method {
 			case tunnel.MethodRegister:
-				log.WithField("service", node.NodeInfo).Info("")
-				err = s.Caller.Register(node)
+				log.WithField("service", tunnelSession.Request).Info("")
+				err = s.Caller.Register(tunnelSession)
 				if err != nil {
-					node.Logger.Error(err)
+					tunnelSession.Logger.Error(err)
 					return
 				}
 			case tunnel.MethodConn:
-				err = s.Caller.Connect(node)
+				err = s.Caller.Connect(tunnelSession)
 				if err != nil {
-					node.Logger.Error(err)
+					tunnelSession.Logger.Error(err)
 					return
 				}
 			default:
-				panic(errors.Errorf("method %v not support", node.Method))
+				panic(errors.Errorf("method %v not support", tunnelSession.Method))
 			}
 		}()
 	}
@@ -125,7 +125,7 @@ func (s *Server) HandleProxy(conn net.Conn) {
 		return
 	}
 
-	err = proxy.Transport(ctx.Value(nodeKey).(*Node).Conn, conn)
+	err = proxy.Transport(ctx.Value(sessionKey).(*tunnel.Session).Conn, conn)
 	if err != nil {
 		return
 	}
@@ -141,6 +141,6 @@ func (s *Server) Valid(ctx context.Context, user, password string) (context.Cont
 		return ctx, false
 	}
 	withField.Info("Auth success")
-	ctx = context.WithValue(ctx, nodeKey, node)
+	ctx = context.WithValue(ctx, sessionKey, node)
 	return ctx, true
 }

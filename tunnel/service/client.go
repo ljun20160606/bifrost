@@ -19,12 +19,7 @@ import (
 var socks5Server, _ = socks5.New(&socks5.Config{})
 
 type Client struct {
-	// ClientId
-	Id string
-	// account
-	Group string
-	// password
-	Name string
+	*tunnel.NodeInfo
 	// bridge address
 	Addr string
 	// writer
@@ -38,10 +33,12 @@ type Client struct {
 func NewClient(group, name, addr string) *Client {
 	uuids, _ := uuid.NewV4()
 	return &Client{
-		Id:    uuids.String(),
-		Group: group,
-		Name:  name,
-		Addr:  addr,
+		NodeInfo: &tunnel.NodeInfo{
+			Id:    uuids.String(),
+			Group: group,
+			Name:  name,
+		},
+		Addr: addr,
 	}
 }
 
@@ -86,16 +83,14 @@ func (c *Client) upstream() error {
 
 // Register service
 func (c *Client) Register() error {
-	bytes, err := json.Marshal(bridge.NodeInfo{
-		Id:     c.Id,
-		Group:  c.Group,
-		Name:   c.Name,
-		Method: tunnel.MethodRegister,
+	bytes, err := json.Marshal(tunnel.Request{
+		NodeInfo: c.NodeInfo,
+		Method:   tunnel.MethodRegister,
 	})
 	if err != nil {
 		return errors.Wrap(err, "序列化节点信息失败")
 	}
-	_, _ = c.Writer.Write(append(bytes, '\n'))
+	_, _ = c.Writer.Write(append(bytes, tunnel.Delim))
 	return nil
 }
 
@@ -105,7 +100,7 @@ func (c *Client) keepAlive() {
 	for {
 		select {
 		case <-time.After(2 * time.Second):
-			_, err := c.Writer.Write([]byte{'\n'})
+			_, err := c.Writer.Write([]byte{tunnel.Delim})
 			if err != nil {
 				log.Error("上报心跳失败", err)
 				return
@@ -131,7 +126,7 @@ func (c *Client) ConnectLoop() error {
 
 // Read a task from connect
 func (c *Client) readTask() (message []byte, isHeart bool, err error) {
-	bytes, err := c.Reader.ReadBytes('\n')
+	bytes, err := c.Reader.ReadBytes(tunnel.Delim)
 	if err != nil {
 		err = errors.Wrap(err, "读取任务失败")
 		return
@@ -152,10 +147,8 @@ func (c *Client) readTask() (message []byte, isHeart bool, err error) {
 // Connect event
 func (c *Client) Connect(messageBytes []byte) {
 	log.Info("读取任务成功", string(messageBytes))
-	bytes, err := json.Marshal(bridge.NodeInfo{
-		Id:         c.Id,
-		Group:      c.Group,
-		Name:       c.Name,
+	bytes, err := json.Marshal(tunnel.Request{
+		NodeInfo:   c.NodeInfo,
 		Method:     tunnel.MethodConn,
 		Attachment: messageBytes,
 	})
@@ -180,7 +173,7 @@ func (c *Client) Connect(messageBytes []byte) {
 	defer conn.Close()
 
 	// connect task
-	_, err = conn.Write(append(bytes, '\n'))
+	_, err = conn.Write(append(bytes, tunnel.Delim))
 	if err != nil {
 		log.Warn("代理上报失败")
 		return

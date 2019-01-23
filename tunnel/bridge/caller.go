@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	"sync"
@@ -9,11 +10,11 @@ import (
 
 type Caller interface {
 	// 拉取一个可用的代理节点
-	Call(user, password string) (*Node, error)
+	Call(user, password string) (*tunnel.Session, error)
 	// 注册服务节点
-	Register(node *Node) error
+	Register(node *tunnel.Session) error
 	// 处理上报的代理节点
-	Connect(node *Node) error
+	Connect(node *tunnel.Session) error
 }
 
 func NewCaller(bridgeAddress string) Caller {
@@ -35,7 +36,7 @@ type NodeCaller struct {
 }
 
 // Lookup a node that group and name is same with username and password
-func (n *NodeCaller) Call(user, password string) (*Node, error) {
+func (n *NodeCaller) Call(user, password string) (*tunnel.Session, error) {
 	listener, has := n.group.Select(user, password)
 	if !has {
 		return nil, errors.Errorf("不存在相同组 %v", user)
@@ -56,27 +57,27 @@ func (n *NodeCaller) Call(user, password string) (*Node, error) {
 	if ret == nil {
 		return nil, errors.New("等待任务超时")
 	}
-	node := ret.(*Node)
-	return node, nil
+	session := ret.(*tunnel.Session)
+	return session, nil
 }
 
 // Event register
-func (n *NodeCaller) Register(node *Node) error {
-	nodeListener := NewNodeListener(node, func(listener *NodeListener) {
+func (n *NodeCaller) Register(session *tunnel.Session) error {
+	nodeListener := NewNodeListener(session, func(listener *NodeListener) {
 		listener.Logger.Info("Unregister service")
-		n.group.Delete(node.NodeInfo)
+		n.group.Delete(session.Request)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	node.Logger.Info("Register service")
+	session.Logger.Info("Register service")
 	n.group.Register(nodeListener)
 	nodeListener.Start()
 	return nil
 }
 
 // Event connect
-func (n *NodeCaller) Connect(node *Node) error {
-	slave, err := NewNodeSlave(node)
+func (n *NodeCaller) Connect(session *tunnel.Session) error {
+	slave, err := NewNodeSlave(session)
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,7 @@ func (n *NodeCaller) Connect(node *Node) error {
 		_ = slave.Close()
 		return errors.Errorf("找不到任务 %v", slave.Message.TaskId)
 	}
-	err = value.(*Channel).Set(slave.Node)
+	err = value.(*Channel).Set(slave.Session)
 	if err != nil {
 		_ = slave.Close()
 		return err
