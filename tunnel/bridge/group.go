@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"github.com/ljun20160606/bifrost/tunnel"
 	"sync"
 )
 
@@ -9,7 +10,7 @@ type Group interface {
 
 	Select(group, name string) (listener *NodeListener, ok bool)
 
-	Delete(nodeInfo *NodeInfo)
+	Delete(request *tunnel.Request)
 }
 
 type GroupCenter struct {
@@ -46,7 +47,7 @@ func (g *GroupCenter) Select(group, name string) (listener *NodeListener, ok boo
 	return value.(*GroupParty).Select(), has
 }
 
-func (g *GroupCenter) Delete(nodeInfo *NodeInfo) {
+func (g *GroupCenter) Delete(nodeInfo *tunnel.Request) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	path := genPath(nodeInfo.Group, nodeInfo.Name)
@@ -82,10 +83,10 @@ func (g *GroupParty) Select() (listener *NodeListener) {
 	return nodeListener
 }
 
-func (g *GroupParty) Delete(nodeInfo *NodeInfo) {
+func (g *GroupParty) Delete(request *tunnel.Request) {
 	for i := range g.listeners {
 		listener := g.listeners[i]
-		if listener.Id == nodeInfo.Id {
+		if listener.Id == request.Id {
 			g.listeners = append(g.listeners[:i], g.listeners[i+1:]...)
 			break
 		}

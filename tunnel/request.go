@@ -1,4 +1,4 @@
-package bridge
+package tunnel
 
 import (
 	"bufio"
@@ -9,50 +9,41 @@ import (
 	"net"
 )
 
-const (
-	Delim = '\n'
-)
-
-type NodeInfo struct {
-	// id
-	Id string `json:"id"`
-	// account
-	Group string `json:"group"`
-	// password
-	Name string `json:"name"`
+type Request struct {
+	*NodeInfo `json:"nodeInfo"`
 	// connect | register
 	Method int `json:"method"`
 	// attachment
 	Attachment json.RawMessage `json:"attachment"`
 }
 
-type Node struct {
+type Session struct {
 	// origin conn
 	net.Conn
 	// context
 	Context context.Context
 	// cancel
 	Cancel context.CancelFunc
-	// node info
-	*NodeInfo
+	// request
+	*Request
 	// logger
 	Logger *logrus.Entry
 }
 
-func NewNode(conn net.Conn) (*Node, error) {
-	infoBytes, err := bufio.NewReader(conn).ReadBytes('\n')
+func NewSession(conn net.Conn) (*Session, error) {
+	infoBytes, err := bufio.NewReader(conn).ReadBytes(Delim)
 	if err != nil {
 		return nil, errors.Wrap(err, "node.info长度有误")
 	}
-	nodeInfo := new(NodeInfo)
-	err = json.Unmarshal(infoBytes, nodeInfo)
+	request := new(Request)
+	err = json.Unmarshal(infoBytes, request)
 	if err != nil {
 		return nil, errors.Wrap(err, "解析node.info失败")
 	}
-	node := new(Node)
-	node.NodeInfo = nodeInfo
+	node := new(Session)
+	node.Request = request
 	node.Context, node.Cancel = context.WithCancel(context.Background())
 	node.Conn = conn
-	node.Logger = logrus.WithField("id", nodeInfo.Id)
+	node.Logger = logrus.WithField("id", request.Id)
 	return node, nil
 }
