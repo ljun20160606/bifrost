@@ -2,12 +2,12 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"github.com/hashicorp/yamux"
-	"github.com/ljun20160606/bifrost/net/socks"
-	"github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
+	"github.com/ljun20160606/go-socks5"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
@@ -15,6 +15,8 @@ import (
 	"net"
 	"time"
 )
+
+var socks5Server, _ = socks5.New(&socks5.Config{})
 
 type Client struct {
 	// ClientId
@@ -78,7 +80,7 @@ func (c *Client) upstream() error {
 	if err != nil {
 		return err
 	}
-	go c.WriteHeart()
+	go c.keepAlive()
 	return c.ConnectLoop()
 }
 
@@ -98,7 +100,7 @@ func (c *Client) Register() error {
 }
 
 // Async write heart
-func (c *Client) WriteHeart() {
+func (c *Client) keepAlive() {
 	log.Info("上报心跳")
 	for {
 		select {
@@ -115,7 +117,7 @@ func (c *Client) WriteHeart() {
 // Wait a task with loop
 func (c *Client) ConnectLoop() error {
 	for {
-		message, isHeart, err := c.ReadTask()
+		message, isHeart, err := c.readTask()
 		if err != nil {
 			log.Error(err)
 			return err
@@ -128,7 +130,7 @@ func (c *Client) ConnectLoop() error {
 }
 
 // Read a task from connect
-func (c *Client) ReadTask() (message []byte, isHeart bool, err error) {
+func (c *Client) readTask() (message []byte, isHeart bool, err error) {
 	bytes, err := c.Reader.ReadBytes('\n')
 	if err != nil {
 		err = errors.Wrap(err, "读取任务失败")
@@ -151,6 +153,7 @@ func (c *Client) ReadTask() (message []byte, isHeart bool, err error) {
 func (c *Client) Connect(messageBytes []byte) {
 	log.Info("读取任务成功", string(messageBytes))
 	bytes, err := json.Marshal(bridge.NodeInfo{
+		Id:         c.Id,
 		Group:      c.Group,
 		Name:       c.Name,
 		Method:     tunnel.MethodConn,
@@ -183,39 +186,5 @@ func (c *Client) Connect(messageBytes []byte) {
 		return
 	}
 
-	proxyConnect(conn)
-}
-
-func proxyConnect(conn net.Conn) {
-	// cmd
-	req, err := proxy.ParseCmdRequest(conn)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	if req.Cmd != socks.CmdConnect {
-		log.Error(errors.New("cmd not support"))
-		return
-	}
-	// connect
-	addr := (&net.TCPAddr{IP: req.Addr.IP, Port: req.Addr.Port}).String()
-	log.Info("Addr: ", addr)
-	target, err := net.Dial("tcp", addr)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	defer target.Close()
-	// cmd reply
-	cmdReply, err := socks.MarshalCmdReply(socks.Version5, socks.StatusSucceeded, &req.Addr)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	_, _ = conn.Write(cmdReply)
-	// transport
-	err = proxy.Transport(target, conn)
-	if err != nil {
-		log.Error(err)
-	}
+	socks5Server.ServeCmdConn(context.Background(), conn, bufio.NewReader(conn))
 }

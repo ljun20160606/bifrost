@@ -1,17 +1,15 @@
 package bridge
 
 import (
-	"github.com/ljun20160606/bifrost/net/socks"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
 
 type Caller interface {
 	// 拉取一个可用的代理节点
-	Call(auth *socks.UsernamePassword) (*Node, error)
+	Call(user, password string) (*Node, error)
 	// 注册服务节点
 	Register(node *Node) error
 	// 处理上报的代理节点
@@ -36,10 +34,11 @@ type NodeCaller struct {
 	taskCenter sync.Map
 }
 
-func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
-	listener, has := n.group.Select(auth.Username, auth.Password)
+// Lookup a node that group and name is same with username and password
+func (n *NodeCaller) Call(user, password string) (*Node, error) {
+	listener, has := n.group.Select(user, password)
 	if !has {
-		return nil, errors.Errorf("不存在相同组 %v", auth.Username)
+		return nil, errors.Errorf("不存在相同组 %v", user)
 	}
 	uuids, _ := uuid.NewV4()
 	taskId := uuids.String()
@@ -51,9 +50,8 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 		Address: n.bridgeAddr,
 	})
 	if !ok {
-		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", auth.Username)
+		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", user)
 	}
-	log.Info("等待任务响应", auth.Username)
 	ret := channel.Get()
 	if ret == nil {
 		return nil, errors.New("等待任务超时")
@@ -62,19 +60,21 @@ func (n *NodeCaller) Call(auth *socks.UsernamePassword) (*Node, error) {
 	return node, nil
 }
 
+// Event register
 func (n *NodeCaller) Register(node *Node) error {
 	nodeListener := NewNodeListener(node, func(listener *NodeListener) {
-		log.WithField("service", listener.NodeInfo).Infof("Unregister service")
+		listener.Logger.Info("Unregister service")
 		n.group.Delete(node.NodeInfo)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	log.WithField("service", nodeListener.NodeInfo).Infof("Register service")
+	node.Logger.Info("Register service")
 	n.group.Register(nodeListener)
 	nodeListener.Start()
 	return nil
 }
 
+// Event connect
 func (n *NodeCaller) Connect(node *Node) error {
 	slave, err := NewNodeSlave(node)
 	if err != nil {
