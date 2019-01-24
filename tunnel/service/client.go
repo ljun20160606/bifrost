@@ -9,7 +9,6 @@ import (
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
 	"github.com/ljun20160606/go-socks5"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -28,30 +27,28 @@ type Client struct {
 	Reader *bufio.Reader
 	// session for mux
 	Session *yamux.Session
+	// logger
+	logger *log.Entry
 }
 
-func NewClient(group, name, addr string) *Client {
-	uuids, _ := uuid.NewV4()
+func NewClient(nodeInfo *tunnel.NodeInfo, addr string) *Client {
 	return &Client{
-		NodeInfo: &tunnel.NodeInfo{
-			Id:    uuids.String(),
-			Group: group,
-			Name:  name,
-		},
-		Addr: addr,
+		NodeInfo: nodeInfo,
+		Addr:     addr,
+		logger:   log.WithField("addr", addr),
 	}
 }
 
 // first action upstream
 func (c *Client) Upstream() {
-	log.Infof("Bridge Address: %v", c.Addr)
+	c.logger.Infof("Bridge Address: %v", c.Addr)
 	for {
-		log.Info("开始连接网桥")
+		c.logger.Info("开始连接网桥")
 		err := c.upstream()
 		if err != nil {
-			log.Error(err)
+			c.logger.Error(err)
 		}
-		log.Info("无法连接网桥稍后尝试重连")
+		c.logger.Info("无法连接网桥稍后尝试重连")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -96,13 +93,13 @@ func (c *Client) Register() error {
 
 // Async write heart
 func (c *Client) keepAlive() {
-	log.Info("上报心跳")
+	c.logger.Info("上报心跳")
 	for {
 		select {
 		case <-time.After(2 * time.Second):
 			_, err := c.Writer.Write([]byte{tunnel.Delim})
 			if err != nil {
-				log.Error("上报心跳失败", err)
+				c.logger.Error("上报心跳失败", err)
 				return
 			}
 		}
@@ -114,7 +111,7 @@ func (c *Client) ConnectLoop() error {
 	for {
 		message, isHeart, err := c.readTask()
 		if err != nil {
-			log.Error(err)
+			c.logger.Error(err)
 			return err
 		}
 		if isHeart {
@@ -146,28 +143,28 @@ func (c *Client) readTask() (message []byte, isHeart bool, err error) {
 
 // Connect event
 func (c *Client) Connect(messageBytes []byte) {
-	log.Info("读取任务成功", string(messageBytes))
+	c.logger.Info("读取任务成功", string(messageBytes))
 	bytes, err := json.Marshal(tunnel.Request{
 		NodeInfo:   c.NodeInfo,
 		Method:     tunnel.MethodConn,
 		Attachment: messageBytes,
 	})
 	if err != nil {
-		log.Error("序列化节点信息失败")
+		c.logger.Error("序列化节点信息失败")
 		return
 	}
 
 	message := new(bridge.Message)
 	err = json.Unmarshal(messageBytes, message)
-	if err != nil {
-		log.Error("反序列化节点信息失败")
+	if c.logger != nil {
+		c.logger.Error("反序列化节点信息失败")
 		return
 	}
 
 	conn, err := c.Session.Open()
 	//conn, err := net.Dial("tcp", message.Address)
 	if err != nil {
-		log.Error("Connect fail", string(messageBytes))
+		c.logger.Error("Connect fail", string(messageBytes))
 		return
 	}
 	defer conn.Close()
@@ -175,7 +172,7 @@ func (c *Client) Connect(messageBytes []byte) {
 	// connect task
 	_, err = conn.Write(append(bytes, tunnel.Delim))
 	if err != nil {
-		log.Warn("代理上报失败")
+		c.logger.Warn("代理上报失败")
 		return
 	}
 
