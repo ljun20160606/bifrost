@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/proxy"
 	"os"
+	"os/signal"
+	"strings"
 )
 
 var (
@@ -36,9 +38,19 @@ var (
 			group := cmd.Flags().Lookup("group").Value.String()
 			name := cmd.Flags().Lookup("name").Value.String()
 			addr := cmd.Flags().Lookup("addr").Value.String()
+			addrs := strings.Split(addr, ",")
+			if len(addrs) == 0 {
+				fmt.Println("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
+				return
+			}
 			// 连接到网桥地址
-			client := service.NewClient(group, name, addr)
+			client := service.New(group, name, addrs)
 			client.Upstream()
+
+			// Block till ctrl+c or kill
+			c := make(chan os.Signal)
+			signal.Notify(c, os.Interrupt, os.Kill)
+			<-c
 		},
 	}
 
@@ -72,7 +84,7 @@ func init() {
 
 	serviceCmd.Flags().StringP("group", "g", "tangtangtang", "分组")
 	serviceCmd.Flags().StringP("name", "n", "ljun", "名称")
-	serviceCmd.Flags().StringP("addr", "a", ":7000", "网桥地址")
+	serviceCmd.Flags().StringP("addr", "a", ":7000", "网桥地址，接受多个网桥地址使用`,`分割，如 :7000,:7001")
 
 	proxyCmd.Flags().StringP("addr", "p", ":8080", "本地代理地址")
 	proxyCmd.Flags().StringP("targetAddr", "t", ":8888", "网桥代理地址")
