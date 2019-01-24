@@ -18,6 +18,9 @@
 
 ## 使用
 
+在内网启动`service`，在公网启动`bridge`，使用`socks5`代理连接`bridge`的`proxy`端口即可使用`service`的内网环境，
+所有的请求都会被`service`代理，支持多`bridge`、多`service`的部署方式
+
 ```bash
 # 启动网桥，网桥必须在service和client都可以访问的环境下启动
 $ bifrost bridge
