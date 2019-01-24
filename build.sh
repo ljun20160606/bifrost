@@ -6,7 +6,7 @@ version=$1
 go=go
 
 if [ "$1" = "" ];then
-    version=v0.0.2
+    version=v0.0.3
 fi
 
 output="out/"
