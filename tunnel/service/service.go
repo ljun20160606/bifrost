@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/ljun20160606/bifrost/tunnel"
-	"github.com/satori/go.uuid"
 )
 
 type Tower struct {
@@ -11,9 +10,8 @@ type Tower struct {
 }
 
 func New(group, name string, addrs []string) *Tower {
-	uuids, _ := uuid.NewV4()
 	nodeInfo := &tunnel.NodeInfo{
-		Id:    uuids.String(),
+		Id:    tunnel.NewUUID(),
 		Group: group,
 		Name:  name,
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	tunnelProxy "github.com/ljun20160606/bifrost/proxy"
+	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
 	"github.com/ljun20160606/bifrost/tunnel/service"
 	log "github.com/sirupsen/logrus"
@@ -66,8 +67,8 @@ var (
 				name := cmd.Flags().Lookup("name").Value.String()
 				// SwitchyOmega调试，SwitchyOmega不支持socks5 auth，所以本地再代理一层
 				err := tunnelProxy.NoAuthSock5ProxyToSock5(addr, targetAddr, &proxy.Auth{
-					User:     group,
-					Password: name,
+					User:     tunnel.BuildRealGroup(group, name),
+					Password: tunnel.NewUUID(),
 				})
 				done <- err
 			}()

@@ -3,7 +3,6 @@ package bridge
 import (
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 	"sync"
 	"time"
 )
@@ -20,7 +19,7 @@ type Caller interface {
 func NewCaller(bridgeAddress string) Caller {
 	return &NodeCaller{
 		bridgeAddr: bridgeAddress,
-		group:      NewGroupCenter(),
+		registry:   NewRegistry(),
 	}
 }
 
@@ -30,19 +29,18 @@ type NodeCaller struct {
 	// 任务锁
 	mutex sync.RWMutex
 	// 所有通信中心
-	group Group
+	registry Registry
 	// 任务中心
 	taskCenter sync.Map
 }
 
 // Lookup a node that group and name is same with username and password
 func (n *NodeCaller) Call(user, password string) (*tunnel.Session, error) {
-	listener, has := n.group.Select(user, password)
+	listener, has := n.registry.Select(user, password)
 	if !has {
 		return nil, errors.Errorf("不存在相同组 %v", user)
 	}
-	uuids, _ := uuid.NewV4()
-	taskId := uuids.String()
+	taskId := tunnel.NewUUID()
 	channel := NewChannel(10 * time.Second)
 	n.taskCenter.Store(taskId, channel)
 	defer n.taskCenter.Delete(taskId)
@@ -65,12 +63,12 @@ func (n *NodeCaller) Call(user, password string) (*tunnel.Session, error) {
 func (n *NodeCaller) Register(session *tunnel.Session) error {
 	nodeListener := NewNodeListener(session, func(listener *NodeListener) {
 		listener.Logger.Info("Unregister service")
-		n.group.Delete(session.Request)
+		n.registry.Delete(session.Request.NodeInfo)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	session.Logger.Info("Register service")
-	n.group.Register(nodeListener)
+	n.registry.Register(nodeListener)
 	nodeListener.Start()
 	return nil
 }
