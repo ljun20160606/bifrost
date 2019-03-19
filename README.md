@@ -43,7 +43,7 @@ $ bifrost -h
 
 ### 负载均衡
 
-允许使用相同组注册到bridge，轮询策略选择service
+允许使用相同组注册到bridge，根据机器临时id一致性hash策略选择service
 
 ### 多路复用
 

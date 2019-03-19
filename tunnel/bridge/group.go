@@ -2,60 +2,62 @@ package bridge
 
 import (
 	"github.com/ljun20160606/bifrost/tunnel"
+	"stathat.com/c/consistent"
 	"sync"
 )
 
-type Group interface {
+type Registry interface {
 	Register(listener *NodeListener)
 
-	Select(group, name string) (listener *NodeListener, ok bool)
+	Select(group, tempId string) (listener *NodeListener, ok bool)
 
-	Delete(request *tunnel.Request)
+	Delete(nodeInfo *tunnel.NodeInfo)
 }
 
-type GroupCenter struct {
-	mutex      sync.Mutex
+type RegistryCenter struct {
+	mutex sync.Mutex
+	// path groupParty
 	nodeCenter map[string]interface{}
 }
 
-func NewGroupCenter() Group {
-	return &GroupCenter{
+func NewRegistry() Registry {
+	return &RegistryCenter{
 		nodeCenter: make(map[string]interface{}),
 	}
 }
 
-func (g *GroupCenter) Register(listener *NodeListener) {
+func (g *RegistryCenter) Register(listener *NodeListener) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	path := genPath(listener.Group, listener.Name)
-	groupParty, ok := g.nodeCenter[path]
+	path := listener.Path()
+	party, ok := g.nodeCenter[path]
 	if !ok {
-		groupParty = new(GroupParty)
-		g.nodeCenter[path] = groupParty
+		party = NewParty()
+		g.nodeCenter[path] = party
 	}
-	party := groupParty.(*GroupParty)
-	party.Add(listener)
+	consistentParty := party.(*ConsistentParty)
+	consistentParty.Add(listener)
 }
 
-func (g *GroupCenter) Select(group, name string) (listener *NodeListener, ok bool) {
+func (g *RegistryCenter) Select(group, tempId string) (listener *NodeListener, ok bool) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	value, has := g.nodeCenter[genPath(group, name)]
+	value, has := g.nodeCenter[group]
 	if !has {
 		return nil, has
 	}
-	return value.(*GroupParty).Select(), has
+	return value.(*ConsistentParty).Select(tempId), has
 }
 
-func (g *GroupCenter) Delete(nodeInfo *tunnel.Request) {
+func (g *RegistryCenter) Delete(nodeInfo *tunnel.NodeInfo) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	path := genPath(nodeInfo.Group, nodeInfo.Name)
+	path := nodeInfo.Path()
 	group, ok := g.nodeCenter[path]
 	if !ok {
 		return
 	}
-	party := group.(*GroupParty)
+	party := group.(*ConsistentParty)
 	// delete from group
 	party.Delete(nodeInfo)
 	if party.Len() == 0 {
@@ -63,36 +65,36 @@ func (g *GroupCenter) Delete(nodeInfo *tunnel.Request) {
 	}
 }
 
-func genPath(group, name string) string {
-	return group + "/" + name
+// Consistent
+type ConsistentParty struct {
+	// id node
+	listeners map[string]*NodeListener
+	// id ring
+	consistent *consistent.Consistent
 }
 
-// Robin
-type GroupParty struct {
-	counter   int
-	listeners []*NodeListener
-}
-
-func (g *GroupParty) Add(listener *NodeListener) {
-	g.listeners = append(g.listeners, listener)
-}
-
-func (g *GroupParty) Select() (listener *NodeListener) {
-	nodeListener := g.listeners[g.counter%len(g.listeners)]
-	g.counter += 1
-	return nodeListener
-}
-
-func (g *GroupParty) Delete(request *tunnel.Request) {
-	for i := range g.listeners {
-		listener := g.listeners[i]
-		if listener.Id == request.Id {
-			g.listeners = append(g.listeners[:i], g.listeners[i+1:]...)
-			break
-		}
+func NewParty() *ConsistentParty {
+	return &ConsistentParty{
+		listeners:  make(map[string]*NodeListener),
+		consistent: consistent.New(),
 	}
 }
 
-func (g *GroupParty) Len() int {
+func (g *ConsistentParty) Add(listener *NodeListener) {
+	g.listeners[listener.Id] = listener
+	g.consistent.Add(listener.Id)
+}
+
+func (g *ConsistentParty) Select(id string) (listener *NodeListener) {
+	listenerId, _ := g.consistent.Get(id)
+	return g.listeners[listenerId]
+}
+
+func (g *ConsistentParty) Delete(nodeInfo *tunnel.NodeInfo) {
+	delete(g.listeners, nodeInfo.Id)
+	g.consistent.Remove(nodeInfo.Id)
+}
+
+func (g *ConsistentParty) Len() int {
 	return len(g.listeners)
 }

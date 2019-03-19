@@ -156,7 +156,7 @@ func (c *Client) Connect(messageBytes []byte) {
 
 	message := new(bridge.Message)
 	err = json.Unmarshal(messageBytes, message)
-	if c.logger != nil {
+	if err != nil {
 		c.logger.Error("反序列化节点信息失败")
 		return
 	}
