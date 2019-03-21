@@ -5,6 +5,7 @@ import (
 	tunnelProxy "github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
+	"github.com/ljun20160606/bifrost/tunnel/mapping"
 	"github.com/ljun20160606/bifrost/tunnel/service"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -75,6 +76,31 @@ var (
 			<-done
 		},
 	}
+
+	mappingCmd = &cobra.Command{
+		Use:   "mapping",
+		Short: "映射",
+		Run: func(cmd *cobra.Command, args []string) {
+			done := make(chan error)
+			addr := cmd.Flags().Lookup("addr").Value.String()
+			targetAddr := cmd.Flags().Lookup("targetAddr").Value.String()
+			realAddr := cmd.Flags().Lookup("realAddr").Value.String()
+			if realAddr == "" {
+				fmt.Println("realAddr不能为空")
+				return
+			}
+			group := cmd.Flags().Lookup("group").Value.String()
+			name := cmd.Flags().Lookup("name").Value.String()
+			go func() {
+				err := mapping.Rewrite(addr, targetAddr, realAddr, &proxy.Auth{
+					User:     tunnel.BuildRealGroup(group, name),
+					Password: tunnel.NewUUID(),
+				})
+				done <- err
+			}()
+			<-done
+		},
+	}
 )
 
 func init() {
@@ -91,10 +117,16 @@ func init() {
 	proxyCmd.Flags().StringP("targetAddr", "t", ":8888", "网桥代理地址")
 	proxyCmd.Flags().StringP("group", "g", "tangtangtang", "分组")
 	proxyCmd.Flags().StringP("name", "n", "ljun", "名称")
+
+	mappingCmd.Flags().StringP("addr", "p", ":8080", "本地代理地址")
+	mappingCmd.Flags().StringP("targetAddr", "t", ":8888", "网桥代理地址")
+	mappingCmd.Flags().StringP("realAddr", "r", "", "映射地址")
+	mappingCmd.Flags().StringP("group", "g", "tangtangtang", "分组")
+	mappingCmd.Flags().StringP("name", "n", "ljun", "名称")
 }
 
 func main() {
-	rootCmd.AddCommand(bridgeCmd, proxyCmd, serviceCmd)
+	rootCmd.AddCommand(bridgeCmd, proxyCmd, serviceCmd, mappingCmd)
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
