@@ -1,7 +1,4 @@
-<a href="https://github.com/ljun20160606/bifrost/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://travis-ci.org/ljun20160606/bifrost"><img src="https://travis-ci.org/ljun20160606/bifrost.svg?branch=master"></a>
-
-## Bifrost
+# Bifrost &middot; <a href="https://github.com/ljun20160606/bifrost/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a> <a href="https://travis-ci.org/ljun20160606/bifrost"><img src="https://travis-ci.org/ljun20160606/bifrost.svg?branch=master"></a> [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ljun20160606/bifrost/pull/new)
 
 内网穿透工具，名字的灵感来自战神4中北欧神话的彩虹桥
 
