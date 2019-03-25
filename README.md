@@ -18,6 +18,8 @@
 在内网启动`service`，在公网启动`bridge`，使用`socks5`代理连接`bridge`的`proxy`端口即可使用`service`的内网环境，
 所有的请求都会被`service`代理，支持多`bridge`、多`service`的部署方式
 
+根据本地配置`.bifrost.yaml`初始化程序
+
 ### 任意访问内网
 
 ```bash
@@ -38,8 +40,8 @@ $ bifrost proxy
 $ bifrost bridge
 # 启动代理客户端
 $ bifrost service
-# 外网启动端口映射，r参数代表你希望访问的内网端口
-$ bifrost mapping -r=127.0.0.1:6666
+# 外网启动端口映射
+$ bifrost mapping
 ```
 
 脚本本身支持自定义参数详情可以
@@ -47,6 +49,43 @@ $ bifrost mapping -r=127.0.0.1:6666
 ```bash
 # 了解帮助信息
 $ bifrost -h
+```
+
+## 配置
+
+```yaml
+bridge:
+  # 网桥地址
+  addr: :7000
+  # 网桥代理地址
+  proxyAddr: :8888
+service:
+  # 分组
+  group: tangtangtang
+  # 名称
+  name: ljun
+  # 网桥地址，接受多个网桥地址使用`,`分割，如 :7000,:7001
+  addr: :7000
+proxy:
+  # 本地代理地址
+  addr: :8080
+  # 网桥代理地址
+  targetAddr: :8888
+  # 分组
+  group: tangtangtang
+  # 名称
+  name: ljun
+mapping:
+  # 本地代理地址
+  addr: :8080
+  # 网桥代理地址
+  targetAddr: :8888
+  # 映射地址
+  realAddr: '192.168.4.100:80'
+  # 分组
+  group: tangtangtang
+  # 名称
+  name: ljun
 ```
 
 ## 功能说明

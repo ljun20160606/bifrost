@@ -2,6 +2,7 @@
 
 name="bifrost"
 version=$1
+input="./cmd/bifrost"
 
 go=go
 
@@ -20,9 +21,9 @@ Build() {
     echo "Building $1..."
     export GOOS=$2 GOARCH=$3 GO386=sse2 CGO_ENABLED=0 GOARM=$4
     if [ $2 = "windows" ];then
-        $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name.exe"
+        $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name.exe" $input
     else
-        $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name"
+        $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name" $input
     fi
 
     Pack $1
@@ -30,8 +31,8 @@ Build() {
 
 # zip 打包
 Pack() {
-    mkdir "$output/$1/download"
     cp README.md "$output/$1"
+    cp $input/.bifrost.yaml "$output/$1"
 
     cd $output
     zip -q -r "$1.zip" "$1"
