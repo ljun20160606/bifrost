@@ -47,7 +47,7 @@ func (a *App) Init() {
 		Run: func(cmd *cobra.Command, args []string) {
 			group := a.Config.Service.Group
 			name := a.Config.Service.Name
-			addr := a.Config.Service.Addr
+			addr := a.Config.Service.BridgeAddr
 			addrs := strings.Split(addr, ",")
 			if len(addrs) == 0 {
 				fmt.Println("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
@@ -71,7 +71,7 @@ func (a *App) Init() {
 			done := make(chan error)
 			go func() {
 				addr := a.Config.Proxy.Addr
-				targetAddr := a.Config.Proxy.TargetAddr
+				targetAddr := a.Config.Proxy.BridgeProxyAddr
 				group := a.Config.Proxy.Group
 				name := a.Config.Proxy.Name
 				// SwitchyOmega调试，SwitchyOmega不支持socks5 auth，所以本地再代理一层
@@ -91,7 +91,7 @@ func (a *App) Init() {
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			addr := a.Config.Mapping.Addr
-			targetAddr := a.Config.Mapping.TargetAddr
+			targetAddr := a.Config.Mapping.BridgeProxyAddr
 			realAddr := a.Config.Mapping.RealAddr
 			if realAddr == "" {
 				fmt.Println("realAddr不能为空")

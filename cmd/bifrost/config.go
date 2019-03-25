@@ -6,22 +6,22 @@ var defaultConfig = Config{
 		ProxyAddr: ":8888",
 	},
 	Service: Service{
-		Group: "tangtangtang",
-		Name:  "ljun",
-		Addr:  ":7000",
+		Group:      "tangtangtang",
+		Name:       "ljun",
+		BridgeAddr: ":7000",
 	},
 	Proxy: Proxy{
-		Addr:       ":8080",
-		TargetAddr: ":8888",
-		Group:      "tangtangtang",
-		Name:       "ljun",
+		Addr:            ":8080",
+		BridgeProxyAddr: ":8888",
+		Group:           "tangtangtang",
+		Name:            "ljun",
 	},
 	Mapping: Mapping{
-		Addr:       ":8080",
-		TargetAddr: ":8888",
-		RealAddr:   "",
-		Group:      "tangtangtang",
-		Name:       "ljun",
+		Addr:            ":8080",
+		BridgeProxyAddr: ":8888",
+		RealAddr:        "",
+		Group:           "tangtangtang",
+		Name:            "ljun",
 	},
 }
 
@@ -38,22 +38,22 @@ type Bridge struct {
 }
 
 type Service struct {
-	Group string `yaml:"group"`
-	Name  string `yaml:"name"`
-	Addr  string `yaml:"addr"`
+	Group      string `yaml:"group"`
+	Name       string `yaml:"name"`
+	BridgeAddr string `yaml:"bridgeAddr"`
 }
 
 type Proxy struct {
-	Addr       string `yaml:"addr"`
-	TargetAddr string `yaml:"targetAddr"`
-	Group      string `yaml:"group"`
-	Name       string `yaml:"name"`
+	Addr            string `yaml:"addr"`
+	BridgeProxyAddr string `yaml:"bridgeProxyAddr"`
+	Group           string `yaml:"group"`
+	Name            string `yaml:"name"`
 }
 
 type Mapping struct {
-	Addr       string `yaml:"addr"`
-	TargetAddr string `yaml:"targetAddr"`
-	RealAddr   string `yaml:"realAddr"`
-	Group      string `yaml:"group"`
-	Name       string `yaml:"name"`
+	Addr            string `yaml:"addr"`
+	BridgeProxyAddr string `yaml:"bridgeProxyAddr"`
+	RealAddr        string `yaml:"realAddr"`
+	Group           string `yaml:"group"`
+	Name            string `yaml:"name"`
 }

@@ -65,12 +65,12 @@ service:
   # 名称
   name: ljun
   # 网桥地址，接受多个网桥地址使用`,`分割，如 :7000,:7001
-  addr: :7000
+  bridgeAddr: :7000
 proxy:
   # 本地代理地址
   addr: :8080
   # 网桥代理地址
-  targetAddr: :8888
+  bridgeProxyAddr: :8888
   # 分组
   group: tangtangtang
   # 名称
@@ -79,9 +79,9 @@ mapping:
   # 本地代理地址
   addr: :8080
   # 网桥代理地址
-  targetAddr: :8888
+  bridgeProxyAddr: :8888
   # 映射地址
-  realAddr: '192.168.4.100:80'
+  realAddr: ''
   # 分组
   group: tangtangtang
   # 名称
