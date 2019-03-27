@@ -9,12 +9,7 @@ type Tower struct {
 	Clients map[string]*Client
 }
 
-func New(group, name string, addrs []string) *Tower {
-	nodeInfo := &tunnel.NodeInfo{
-		Id:    tunnel.NewUUID(),
-		Group: group,
-		Name:  name,
-	}
+func New(nodeInfo *tunnel.NodeInfo, addrs []string) *Tower {
 	tower := &Tower{
 		NodeInfo: nodeInfo,
 		Clients:  make(map[string]*Client),

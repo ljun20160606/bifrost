@@ -2,22 +2,21 @@ package main
 
 import (
 	"fmt"
-	tunnelProxy "github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
 	"github.com/ljun20160606/bifrost/tunnel/bridge"
 	"github.com/ljun20160606/bifrost/tunnel/mapping"
+	tunnelProxy "github.com/ljun20160606/bifrost/tunnel/proxy"
 	"github.com/ljun20160606/bifrost/tunnel/service"
 	"github.com/ljun20160606/di"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/proxy"
 	"os"
 	"os/signal"
 	"strings"
 )
 
 var (
-	rootCmd   = &cobra.Command{}
+	rootCmd = &cobra.Command{}
 )
 
 type App struct {
@@ -48,13 +47,19 @@ func (a *App) Init() {
 			group := a.Config.Service.Group
 			name := a.Config.Service.Name
 			addr := a.Config.Service.BridgeAddr
+			password := a.Config.Service.Password
 			addrs := strings.Split(addr, ",")
 			if len(addrs) == 0 {
 				fmt.Println("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
 				return
 			}
+			if password == "" || len(password)>255 {
+				fmt.Println("length of password must be > 0 and < 255")
+				return
+			}
+
 			// 连接到网桥地址
-			client := service.New(group, name, addrs)
+			client := service.New(&tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password,}, addrs)
 			client.Upstream()
 
 			// Block till ctrl+c or kill
@@ -74,11 +79,15 @@ func (a *App) Init() {
 				targetAddr := a.Config.Proxy.BridgeProxyAddr
 				group := a.Config.Proxy.Group
 				name := a.Config.Proxy.Name
+				password := a.Config.Proxy.Password
+
+				nodeInfo := &tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}
 				// SwitchyOmega调试，SwitchyOmega不支持socks5 auth，所以本地再代理一层
-				err := tunnelProxy.NoAuthSock5ProxyToSock5(addr, targetAddr, &proxy.Auth{
-					User:     tunnel.BuildRealGroup(group, name),
-					Password: tunnel.NewUUID(),
-				})
+				auth, err := nodeInfo.ProxyAuth()
+				if err != nil {
+					done <- err
+				}
+				err = tunnelProxy.NoAuthSock5ProxyToSock5(addr, targetAddr, auth)
 				done <- err
 			}()
 			fmt.Println(<-done)
@@ -93,19 +102,21 @@ func (a *App) Init() {
 			addr := a.Config.Mapping.Addr
 			targetAddr := a.Config.Mapping.BridgeProxyAddr
 			realAddr := a.Config.Mapping.RealAddr
+			password := a.Config.Mapping.Password
 			if realAddr == "" {
 				fmt.Println("realAddr不能为空")
 				return
 			}
 			group := a.Config.Mapping.Group
 			name := a.Config.Mapping.Name
-			//group := cmd.Flags().Lookup("group").Value.String()
-			//name := cmd.Flags().Lookup("name").Value.String()
+
+			nodeInfo := &tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}
 			go func() {
-				err := mapping.Rewrite(addr, targetAddr, realAddr, &proxy.Auth{
-					User:     tunnel.BuildRealGroup(group, name),
-					Password: tunnel.NewUUID(),
-				})
+				auth, err := nodeInfo.ProxyAuth()
+				if err != nil {
+					done <- err
+				}
+				err = mapping.Rewrite(addr, targetAddr, realAddr, auth)
 				done <- err
 			}()
 			fmt.Println(<-done)
@@ -124,7 +135,7 @@ func main() {
 	di.Put(app)
 	err := di.ConfigLoadFile(".bifrost.yaml", di.YAML)
 	if err != nil {
-		fmt.Println(".bifrost Not Found, Use DefaultConfig")
+		fmt.Println(".bifrost.yaml Not Found, Use DefaultConfig")
 		app.Config = &defaultConfig
 	}
 	di.Start()

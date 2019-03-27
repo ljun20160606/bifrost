@@ -13,11 +13,11 @@ func NoAuthSock5ProxyToSock5(listenAdder, targetAddr string, auth *proxy.Auth) e
 	if err != nil {
 		return err
 	}
-	log.Infof("Now listening on: %v, Target address: %v", listenAdder, targetAddr)
+	log.Infof("Now listening on: %v, Target address: %v, User: %v", listenAdder, targetAddr, auth.User)
 	s, _ := socks5.New(&socks5.Config{
 		Dial: func(ctx context.Context, network string, addr *socks5.AddrSpec) (conn net.Conn, e error) {
 			address := addr.Address()
-			log.Info("Addr: ", address)
+			log.Info("Addr: ", addr.String())
 			return dialer.Dial("tcp", address)
 		},
 	})

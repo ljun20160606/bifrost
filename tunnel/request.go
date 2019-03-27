@@ -12,8 +12,7 @@ import (
 type Request struct {
 	*NodeInfo `json:"nodeInfo"`
 	// connect | register
-	Method int `json:"method"`
-	// attachment
+	Method     int             `json:"method"`
 	Attachment json.RawMessage `json:"attachment"`
 }
 

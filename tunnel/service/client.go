@@ -162,7 +162,6 @@ func (c *Client) Connect(messageBytes []byte) {
 	}
 
 	conn, err := c.Session.Open()
-	//conn, err := net.Dial("tcp", message.Address)
 	if err != nil {
 		c.logger.Error("Connect fail", string(messageBytes))
 		return

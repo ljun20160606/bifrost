@@ -7,21 +7,21 @@ var defaultConfig = Config{
 	},
 	Service: Service{
 		Group:      "tangtangtang",
-		Name:       "ljun",
 		BridgeAddr: ":7000",
+		Password:   "20160606",
 	},
 	Proxy: Proxy{
 		Addr:            ":8080",
 		BridgeProxyAddr: ":8888",
 		Group:           "tangtangtang",
-		Name:            "ljun",
+		Password:        "20160606",
 	},
 	Mapping: Mapping{
 		Addr:            ":8080",
 		BridgeProxyAddr: ":8888",
 		RealAddr:        "",
 		Group:           "tangtangtang",
-		Name:            "ljun",
+		Password:        "20160606",
 	},
 }
 
@@ -41,6 +41,7 @@ type Service struct {
 	Group      string `yaml:"group"`
 	Name       string `yaml:"name"`
 	BridgeAddr string `yaml:"bridgeAddr"`
+	Password   string `yaml:"password"`
 }
 
 type Proxy struct {
@@ -48,6 +49,7 @@ type Proxy struct {
 	BridgeProxyAddr string `yaml:"bridgeProxyAddr"`
 	Group           string `yaml:"group"`
 	Name            string `yaml:"name"`
+	Password        string `yaml:"password"`
 }
 
 type Mapping struct {
@@ -56,4 +58,5 @@ type Mapping struct {
 	RealAddr        string `yaml:"realAddr"`
 	Group           string `yaml:"group"`
 	Name            string `yaml:"name"`
+	Password        string `yaml:"password"`
 }

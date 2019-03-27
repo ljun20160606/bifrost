@@ -29,11 +29,11 @@ func NewRegistry() Registry {
 func (g *RegistryCenter) Register(listener *NodeListener) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	path := listener.Path()
-	party, ok := g.nodeCenter[path]
+	group := listener.Account()
+	party, ok := g.nodeCenter[group]
 	if !ok {
 		party = NewParty()
-		g.nodeCenter[path] = party
+		g.nodeCenter[group] = party
 	}
 	consistentParty := party.(*ConsistentParty)
 	consistentParty.Add(listener)
@@ -52,8 +52,8 @@ func (g *RegistryCenter) Select(group, tempId string) (listener *NodeListener, o
 func (g *RegistryCenter) Delete(nodeInfo *tunnel.NodeInfo) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	path := nodeInfo.Path()
-	group, ok := g.nodeCenter[path]
+	groupName := nodeInfo.Account()
+	group, ok := g.nodeCenter[groupName]
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (g *RegistryCenter) Delete(nodeInfo *tunnel.NodeInfo) {
 	// delete from group
 	party.Delete(nodeInfo)
 	if party.Len() == 0 {
-		delete(g.nodeCenter, path)
+		delete(g.nodeCenter, groupName)
 	}
 }
 

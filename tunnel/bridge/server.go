@@ -121,7 +121,7 @@ func (s *Server) HandleProxy(conn net.Conn) {
 	ctx = context.WithValue(ctx, logKey, withIp)
 	ctx, _, err := s.SocksServer.Authenticate(ctx, conn, conn)
 	if err != nil {
-		withIp.Error("校验失败", err)
+		withIp.Error("校验失败 ", err)
 		return
 	}
 
@@ -133,11 +133,19 @@ func (s *Server) HandleProxy(conn net.Conn) {
 
 // valid username password and call service
 func (s *Server) Valid(ctx context.Context, user, password string) (context.Context, bool) {
-	withField := ctx.Value(logKey).(*log.Entry).
-		WithField("group", user).WithField("name", password)
-	node, err := s.Caller.Call(user, password)
+	withField := ctx.Value(logKey).(*log.Entry).WithField("user", user)
+	nodeInfo, err := tunnel.ParseUser(user)
 	if err != nil {
-		withField.Error("Auth fail")
+		withField.Error("Auth fail", err)
+		return ctx, false
+	}
+	node, err := s.Caller.Call(nodeInfo)
+	if err != nil {
+		withField.Error("Auth fail", err)
+		return ctx, false
+	}
+	if password != node.Password {
+		withField.Error("Auth fail 密码错误")
 		return ctx, false
 	}
 	withField.Info("Auth success")

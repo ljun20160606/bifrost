@@ -9,7 +9,7 @@ import (
 
 type Caller interface {
 	// 拉取一个可用的代理节点
-	Call(user, password string) (*tunnel.Session, error)
+	Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error)
 	// 注册服务节点
 	Register(node *tunnel.Session) error
 	// 处理上报的代理节点
@@ -35,10 +35,11 @@ type NodeCaller struct {
 }
 
 // Lookup a node that group and name is same with username and password
-func (n *NodeCaller) Call(user, password string) (*tunnel.Session, error) {
-	listener, has := n.registry.Select(user, password)
+func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
+	account := nodeInfo.Account()
+	listener, has := n.registry.Select(account, nodeInfo.Id)
 	if !has {
-		return nil, errors.Errorf("不存在相同组 %v", user)
+		return nil, errors.Errorf("不存在相同组 %v", account)
 	}
 	taskId := tunnel.NewUUID()
 	channel := NewChannel(10 * time.Second)
@@ -49,7 +50,7 @@ func (n *NodeCaller) Call(user, password string) (*tunnel.Session, error) {
 		Address: n.bridgeAddr,
 	})
 	if !ok {
-		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", user)
+		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", account)
 	}
 	ret := channel.Get()
 	if ret == nil {

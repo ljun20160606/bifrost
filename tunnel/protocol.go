@@ -1,9 +1,15 @@
 package tunnel
 
-import "github.com/satori/go.uuid"
+import (
+	"errors"
+	"github.com/satori/go.uuid"
+	"golang.org/x/net/proxy"
+	"strings"
+)
 
 const (
-	Delim = '\n'
+	Delim     = '\n'
+	userDelim = ":"
 )
 
 const (
@@ -14,23 +20,37 @@ const (
 )
 
 type NodeInfo struct {
-	// id
-	Id string `json:"id"`
-	// account
-	Group string `json:"group"`
-	// password
-	Name string `json:"name"`
+	Id       string `json:"id"`
+	Group    string `json:"group"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
 }
 
-func (n *NodeInfo) Path() string {
-	return BuildRealGroup(n.Group, n.Name)
+func (n *NodeInfo) Account() string {
+	return n.Group + userDelim + n.Name
 }
 
-const groupDelim = "/"
+func (n *NodeInfo) User() string {
+	return n.Account() + userDelim + n.Id
+}
 
-// 生成真正的group
-func BuildRealGroup(group, name string) string {
-	return group + groupDelim + name
+func (n *NodeInfo) ProxyAuth() (*proxy.Auth, error) {
+	auth := &proxy.Auth{
+		User:     n.User(),
+		Password: n.Password,
+	}
+	if len(auth.User) == 0 || len(auth.User) > 255 || len(auth.Password) == 0 || len(auth.Password) > 255 {
+		return nil, errors.New("invalid username/password")
+	}
+	return auth, nil
+}
+
+func ParseUser(str string) (*NodeInfo, error) {
+	n := strings.SplitN(str, userDelim, 3)
+	if len(n) < 3 {
+		return nil, errors.New(str + " 格式不正确")
+	}
+	return &NodeInfo{Id: n[2], Group: n[0], Name: n[1],}, nil
 }
 
 func NewUUID() string {
