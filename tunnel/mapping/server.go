@@ -20,7 +20,7 @@ func Rewrite(listenAdder, targetAddr, realAddr string, auth *proxy.Auth) error {
 			defer conn.Close()
 			destConn, err := dialer.Dial("tcp", realAddr)
 			if err != nil {
-				log.Error("连接realAddr失败", err)
+				log.Error("connect realAddr fail ", err)
 				return
 			}
 			err = biproxy.Transport(conn, destConn)

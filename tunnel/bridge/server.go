@@ -75,7 +75,7 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 	// Setup server side of yamux
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
-		log.Error("使用多路复用失败", err)
+		log.Error("multiplexing fail", err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 		stream, err := session.Accept()
 		if err != nil {
 			if err != io.EOF {
-				log.Error("会话接收任务失败", err)
+				log.Error("session accept fail", err)
 			}
 			return
 		}
@@ -116,12 +116,12 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 
 func (s *Server) HandleProxy(conn net.Conn) {
 	defer conn.Close()
-	withIp := log.WithField("ip", conn.RemoteAddr().String())
+	withIp := log.WithField("remoteAddr", conn.RemoteAddr().String())
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, logKey, withIp)
 	ctx, _, err := s.SocksServer.Authenticate(ctx, conn, conn)
 	if err != nil {
-		withIp.Error("校验失败 ", err)
+		withIp.Error("auth fail ", err)
 		return
 	}
 
@@ -136,16 +136,16 @@ func (s *Server) Valid(ctx context.Context, user, password string) (context.Cont
 	withField := ctx.Value(logKey).(*log.Entry).WithField("user", user)
 	nodeInfo, err := tunnel.ParseUser(user)
 	if err != nil {
-		withField.Error("Auth fail", err)
+		withField.Error("auth fail", err)
 		return ctx, false
 	}
 	node, err := s.Caller.Call(nodeInfo)
 	if err != nil {
-		withField.Error("Auth fail", err)
+		withField.Error("auth fail", err)
 		return ctx, false
 	}
 	if password != node.Password {
-		withField.Error("Auth fail 密码错误")
+		withField.Error("auth fail password error")
 		return ctx, false
 	}
 	withField.Info("Auth success")

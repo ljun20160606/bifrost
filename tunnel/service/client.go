@@ -43,12 +43,12 @@ func NewClient(nodeInfo *tunnel.NodeInfo, addr string) *Client {
 func (c *Client) Upstream() {
 	c.logger.Infof("Bridge Address: %v", c.Addr)
 	for {
-		c.logger.Info("开始连接网桥")
+		c.logger.Info("Connect bridge")
 		err := c.upstream()
 		if err != nil {
 			c.logger.Error(err)
 		}
-		c.logger.Info("无法连接网桥稍后尝试重连")
+		c.logger.Info("Disconnect bridge try again later")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -85,7 +85,7 @@ func (c *Client) Register() error {
 		Method:   tunnel.MethodRegister,
 	})
 	if err != nil {
-		return errors.Wrap(err, "序列化节点信息失败")
+		return errors.Wrap(err, "Register marshal nodeInfo fail")
 	}
 	_, _ = c.Writer.Write(append(bytes, tunnel.Delim))
 	return nil
@@ -93,13 +93,13 @@ func (c *Client) Register() error {
 
 // Async write heart
 func (c *Client) keepAlive() {
-	c.logger.Info("上报心跳")
+	c.logger.Info("Heart beats start")
 	for {
 		select {
 		case <-time.After(2 * time.Second):
 			_, err := c.Writer.Write([]byte{tunnel.Delim})
 			if err != nil {
-				c.logger.Error("上报心跳失败", err)
+				c.logger.Error("Heart beats fail", err)
 				return
 			}
 		}
@@ -109,61 +109,62 @@ func (c *Client) keepAlive() {
 // Wait a task with loop
 func (c *Client) ConnectLoop() error {
 	for {
-		message, isHeart, err := c.readTask()
+		r, err := c.readTask()
 		if err != nil {
 			c.logger.Error(err)
 			return err
 		}
-		if isHeart {
+		if r.isHeart {
 			continue
 		}
-		go c.Connect(message)
+		go c.Connect(r)
 	}
 }
 
+type connectResp struct {
+	content []byte
+	isHeart bool
+	message *bridge.Message
+}
+
 // Read a task from connect
-func (c *Client) readTask() (message []byte, isHeart bool, err error) {
-	bytes, err := c.Reader.ReadBytes(tunnel.Delim)
+func (c *Client) readTask() (r *connectResp, err error) {
+	r = new(connectResp)
+	r.content, err = c.Reader.ReadBytes(tunnel.Delim)
 	if err != nil {
-		err = errors.Wrap(err, "读取任务失败")
+		err = errors.Wrap(err, "Task read fail")
 		return
 	}
-	if len(bytes) == 0 || (len(bytes) == 1 && bytes[0] == 10) {
-		isHeart = true
+	if len(r.content) == 0 || (len(r.content) == 1 && r.content[0] == 10) {
+		r.isHeart = true
 		return
 	}
-	err = json.Unmarshal(bytes, new(bridge.Message))
+	r.message = new(bridge.Message)
+	err = json.Unmarshal(r.content, r.message)
 	if err != nil {
-		err = errors.Wrap(err, "读取数据格式有误"+string(bytes))
+		err = errors.Wrap(err, "Task content is illegal "+string(r.content))
 		return
 	}
-	message = bytes[:len(bytes)-1]
 	return
 }
 
 // Connect event
-func (c *Client) Connect(messageBytes []byte) {
-	c.logger.Info("读取任务成功", string(messageBytes))
+func (c *Client) Connect(r *connectResp) {
+	withId := log.WithField("taskId", r.message.TaskId)
+	withId.Info("Get call")
 	bytes, err := json.Marshal(tunnel.Request{
 		NodeInfo:   c.NodeInfo,
 		Method:     tunnel.MethodConn,
-		Attachment: messageBytes,
+		Attachment: r.content,
 	})
 	if err != nil {
-		c.logger.Error("序列化节点信息失败")
-		return
-	}
-
-	message := new(bridge.Message)
-	err = json.Unmarshal(messageBytes, message)
-	if err != nil {
-		c.logger.Error("反序列化节点信息失败")
+		withId.Error("marshal Request fail")
 		return
 	}
 
 	conn, err := c.Session.Open()
 	if err != nil {
-		c.logger.Error("Connect fail", string(messageBytes))
+		withId.Error("connect fail")
 		return
 	}
 	defer conn.Close()
@@ -171,7 +172,7 @@ func (c *Client) Connect(messageBytes []byte) {
 	// connect task
 	_, err = conn.Write(append(bytes, tunnel.Delim))
 	if err != nil {
-		c.logger.Warn("代理上报失败")
+		withId.Warn("answer fail")
 		return
 	}
 

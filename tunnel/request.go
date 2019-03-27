@@ -32,12 +32,12 @@ type Session struct {
 func NewSession(conn net.Conn) (*Session, error) {
 	infoBytes, err := bufio.NewReader(conn).ReadBytes(Delim)
 	if err != nil {
-		return nil, errors.Wrap(err, "node.info长度有误")
+		return nil, errors.Wrap(err, "node.info length error")
 	}
 	request := new(Request)
 	err = json.Unmarshal(infoBytes, request)
 	if err != nil {
-		return nil, errors.Wrap(err, "解析node.info失败")
+		return nil, errors.Wrap(err, "parse node.info fail")
 	}
 	node := new(Session)
 	node.Request = request

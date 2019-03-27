@@ -8,7 +8,7 @@ import (
 // A info of service when service connect bridge
 type NodeSlave struct {
 	*tunnel.Session
-	// 任务信息
+	// Task message
 	Message *Message
 }
 

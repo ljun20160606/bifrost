@@ -39,7 +39,7 @@ func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
 	account := nodeInfo.Account()
 	listener, has := n.registry.Select(account, nodeInfo.Id)
 	if !has {
-		return nil, errors.Errorf("不存在相同组 %v", account)
+		return nil, errors.Errorf("could not match %v", account)
 	}
 	taskId := tunnel.NewUUID()
 	channel := NewChannel(10 * time.Second)
@@ -50,11 +50,11 @@ func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
 		Address: n.bridgeAddr,
 	})
 	if !ok {
-		return nil, errors.Errorf("对应的服务节点无法接收任务 %v", account)
+		return nil, errors.Errorf("service unavailable %v", account)
 	}
 	ret := channel.Get()
 	if ret == nil {
-		return nil, errors.New("等待任务超时")
+		return nil, errors.New("wait timeout")
 	}
 	session := ret.(*tunnel.Session)
 	return session, nil
@@ -85,7 +85,7 @@ func (n *NodeCaller) Connect(session *tunnel.Session) error {
 	value, has := n.taskCenter.Load(slave.Message.TaskId)
 	if !has {
 		_ = slave.Close()
-		return errors.Errorf("找不到任务 %v", slave.Message.TaskId)
+		return errors.Errorf("task not find TaskId: %v", slave.Message.TaskId)
 	}
 	err = value.(*Channel).Set(slave.Session)
 	if err != nil {

@@ -53,13 +53,13 @@ func (a *App) Init() {
 				fmt.Println("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
 				return
 			}
-			if password == "" || len(password)>255 {
+			if password == "" || len(password) > 255 {
 				fmt.Println("length of password must be > 0 and < 255")
 				return
 			}
 
 			// 连接到网桥地址
-			client := service.New(&tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password,}, addrs)
+			client := service.New(&tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}, addrs)
 			client.Upstream()
 
 			// Block till ctrl+c or kill
@@ -104,7 +104,7 @@ func (a *App) Init() {
 			realAddr := a.Config.Mapping.RealAddr
 			password := a.Config.Mapping.Password
 			if realAddr == "" {
-				fmt.Println("realAddr不能为空")
+				fmt.Println("realAddr can not be null")
 				return
 			}
 			group := a.Config.Mapping.Group
@@ -135,7 +135,7 @@ func main() {
 	di.Put(app)
 	err := di.ConfigLoadFile(".bifrost.yaml", di.YAML)
 	if err != nil {
-		fmt.Println(".bifrost.yaml Not Found, Use DefaultConfig")
+		fmt.Println(".bifrost.yaml not found, use defaultConfig")
 		app.Config = &defaultConfig
 	}
 	di.Start()

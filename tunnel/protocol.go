@@ -48,9 +48,9 @@ func (n *NodeInfo) ProxyAuth() (*proxy.Auth, error) {
 func ParseUser(str string) (*NodeInfo, error) {
 	n := strings.SplitN(str, userDelim, 3)
 	if len(n) < 3 {
-		return nil, errors.New(str + " 格式不正确")
+		return nil, errors.New(str + " illegal")
 	}
-	return &NodeInfo{Id: n[2], Group: n[0], Name: n[1],}, nil
+	return &NodeInfo{Id: n[2], Group: n[0], Name: n[1]}, nil
 }
 
 func NewUUID() string {

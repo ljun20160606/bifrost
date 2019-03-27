@@ -39,9 +39,9 @@ func (s *NodeListener) keepAlive() {
 			_, err := s.Read(heart)
 			if err != nil {
 				if err == io.EOF {
-					s.Logger.Info("连接断开")
+					s.Logger.Info("Disconnect with client")
 				} else {
-					s.Logger.Error("心跳错误 ", err)
+					s.Logger.Error("heart beats error ", err)
 				}
 				s.Close()
 				// 从注册列表中删除自己
@@ -89,7 +89,7 @@ func (s *NodeListener) send() {
 			}
 		}
 		if _, err := s.Write(buf.Bytes()); err != nil {
-			log.Error("写失败", err)
+			log.Error("send fail", err)
 			s.Close()
 			return
 		}
@@ -107,7 +107,7 @@ func (s *NodeListener) Notify(message *Message) bool {
 	if err != nil {
 		return false
 	}
-	s.Logger.Info("通知任务", string(data))
+	s.Logger.Infof("Call TaskId: %v", message.TaskId)
 	s.sendCh <- append(data, tunnel.Delim)
 	return true
 }
