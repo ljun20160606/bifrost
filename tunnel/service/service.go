@@ -1,7 +1,10 @@
 package service
 
 import (
+	"errors"
 	"github.com/ljun20160606/bifrost/tunnel"
+	"github.com/ljun20160606/bifrost/tunnel/config"
+	"strings"
 )
 
 type Tower struct {
@@ -9,7 +12,18 @@ type Tower struct {
 	Clients map[string]*Client
 }
 
-func New(nodeInfo *tunnel.NodeInfo, addrs []string) *Tower {
+func New(config *config.Service) (*Tower, error) {
+	addr := config.BridgeAddr
+	addrs := strings.Split(addr, ",")
+	if len(addrs) == 0 {
+		return nil, errors.New("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
+	}
+	password := config.Password
+	if password == "" || len(password) > 255 {
+		return nil, errors.New("length of password must be > 0 and < 255")
+	}
+
+	nodeInfo := &tunnel.NodeInfo{Group: config.Group, Name: config.Name, Id: tunnel.NewUUID(), Password: config.Password, Cipher: config.Cipher}
 	tower := &Tower{
 		NodeInfo: nodeInfo,
 		Clients:  make(map[string]*Client),
@@ -18,7 +32,7 @@ func New(nodeInfo *tunnel.NodeInfo, addrs []string) *Tower {
 		addr := addrs[i]
 		tower.Clients[addr] = NewClient(nodeInfo, addr)
 	}
-	return tower
+	return tower, nil
 }
 
 func (t *Tower) Upstream() {

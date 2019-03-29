@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	"strings"
 )
 
 var (
@@ -26,7 +25,7 @@ type App struct {
 func (a *App) Init() {
 	bridgeCmd := &cobra.Command{
 		Use:   "bridge",
-		Short: "网桥",
+		Short: "net bridge",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			go func() {
@@ -42,24 +41,14 @@ func (a *App) Init() {
 
 	serviceCmd := &cobra.Command{
 		Use:   "service",
-		Short: "上报服务",
+		Short: "node service",
 		Run: func(cmd *cobra.Command, args []string) {
-			group := a.Config.Service.Group
-			name := a.Config.Service.Name
-			addr := a.Config.Service.BridgeAddr
-			password := a.Config.Service.Password
-			addrs := strings.Split(addr, ",")
-			if len(addrs) == 0 {
-				fmt.Println("addrs invalid, can receive 0.0.0.0:7000 or a group like 0.0.0.0:7000,0.0.0.0:7001")
-				return
-			}
-			if password == "" || len(password) > 255 {
-				fmt.Println("length of password must be > 0 and < 255")
-				return
-			}
-
 			// 连接到网桥地址
-			client := service.New(&tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}, addrs)
+			client, err := service.New(&a.Config.Service)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 			client.Upstream()
 
 			// Block till ctrl+c or kill
@@ -71,7 +60,7 @@ func (a *App) Init() {
 
 	proxyCmd := &cobra.Command{
 		Use:   "proxy",
-		Short: "本地代理",
+		Short: "local proxy",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			go func() {
@@ -96,7 +85,7 @@ func (a *App) Init() {
 
 	mappingCmd := &cobra.Command{
 		Use:   "mapping",
-		Short: "映射",
+		Short: "local mapping agent",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			addr := a.Config.Mapping.Addr
@@ -133,9 +122,10 @@ func init() {
 func main() {
 	app := new(App)
 	di.Put(app)
-	err := di.ConfigLoadFile(".bifrost.yaml", di.YAML)
+	const bifrostYaml = ".bifrost.yaml"
+	err := di.ConfigLoadFile(bifrostYaml, di.YAML)
 	if err != nil {
-		fmt.Println(".bifrost.yaml not found, use defaultConfig")
+		fmt.Println(bifrostYaml + " not found, use defaultConfig")
 		app.Config = &defaultConfig
 	}
 	di.Start()

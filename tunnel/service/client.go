@@ -80,12 +80,17 @@ func (c *Client) upstream() error {
 
 // Register service
 func (c *Client) Register() error {
-	bytes, err := json.Marshal(tunnel.Request{
-		NodeInfo: c.NodeInfo,
-		Method:   tunnel.MethodRegister,
-	})
+	nodeInfoBytes, err := json.Marshal(c.NodeInfo)
 	if err != nil {
 		return errors.Wrap(err, "Register marshal nodeInfo fail")
+	}
+	bytes, err := json.Marshal(tunnel.Request{
+		ServiceId:  c.NodeInfo.Id,
+		Method:     tunnel.MethodRegister,
+		Attachment: nodeInfoBytes,
+	})
+	if err != nil {
+		return errors.Wrap(err, "Register marshal request fail")
 	}
 	_, _ = c.Writer.Write(append(bytes, tunnel.Delim))
 	return nil
@@ -153,12 +158,12 @@ func (c *Client) Connect(r *connectResp) {
 	withId := log.WithField("taskId", r.message.TaskId)
 	withId.Info("Get call")
 	bytes, err := json.Marshal(tunnel.Request{
-		NodeInfo:   c.NodeInfo,
+		ServiceId:  c.NodeInfo.Id,
 		Method:     tunnel.MethodConn,
 		Attachment: r.content,
 	})
 	if err != nil {
-		withId.Error("marshal Request fail")
+		withId.Error("marshal request fail")
 		return
 	}
 

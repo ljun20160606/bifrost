@@ -24,6 +24,7 @@ type NodeInfo struct {
 	Group    string `json:"group"`
 	Name     string `json:"name"`
 	Password string `json:"password"`
+	Cipher   string `json:"cipher"`
 }
 
 func (n *NodeInfo) Account() string {

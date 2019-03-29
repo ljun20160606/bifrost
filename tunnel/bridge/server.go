@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/hashicorp/yamux"
 	"github.com/ljun20160606/bifrost/proxy"
 	"github.com/ljun20160606/bifrost/tunnel"
@@ -95,22 +96,41 @@ func (s *Server) HandleCommunication(conn net.Conn) {
 			}
 			switch tunnelSession.Method {
 			case tunnel.MethodRegister:
-				log.WithField("service", tunnelSession.Request).Info("")
-				err = s.Caller.Register(tunnelSession)
-				if err != nil {
-					tunnelSession.Logger.Error(err)
-					return
-				}
+				s.handleRegister(tunnelSession)
 			case tunnel.MethodConn:
-				err = s.Caller.Connect(tunnelSession)
-				if err != nil {
-					tunnelSession.Logger.Error(err)
-					return
-				}
+				s.handleConnect(tunnelSession)
 			default:
 				panic(errors.Errorf("method %v not support", tunnelSession.Method))
 			}
 		}()
+	}
+}
+
+func (s *Server) handleRegister(session *tunnel.Session) {
+	log.WithField("service", session.Request).Info("")
+
+	// parse NodeInfo from attachment
+	nodeInfo := new(tunnel.NodeInfo)
+	err := json.Unmarshal(session.Request.Attachment, nodeInfo)
+	if err != nil {
+		session.Logger.Error(errors.Wrap(err, "parse service.info fail"))
+		return
+	}
+	session.NodeInfo = nodeInfo
+	session.Attachment = nil
+
+	err = s.Caller.Register(session)
+	if err != nil {
+		session.Logger.Error(err)
+		return
+	}
+}
+
+func (s *Server) handleConnect(session *tunnel.Session) {
+	err := s.Caller.Connect(session)
+	if err != nil {
+		session.Logger.Error(err)
+		return
 	}
 }
 

@@ -45,10 +45,7 @@ func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
 	channel := NewChannel(10 * time.Second)
 	n.taskCenter.Store(taskId, channel)
 	defer n.taskCenter.Delete(taskId)
-	ok := listener.Notify(&Message{
-		TaskId:  taskId,
-		Address: n.bridgeAddr,
-	})
+	ok := listener.Notify(&Message{TaskId: taskId,})
 	if !ok {
 		return nil, errors.Errorf("service unavailable %v", account)
 	}
@@ -64,7 +61,7 @@ func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
 func (n *NodeCaller) Register(session *tunnel.Session) error {
 	nodeListener := NewNodeListener(session, func(listener *NodeListener) {
 		listener.Logger.Info("Unregister service")
-		n.registry.Delete(session.Request.NodeInfo)
+		n.registry.Delete(session.Request.ServiceId)
 	})
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -76,10 +73,17 @@ func (n *NodeCaller) Register(session *tunnel.Session) error {
 
 // Event connect
 func (n *NodeCaller) Connect(session *tunnel.Session) error {
+	listener, has := n.registry.Find(session.ServiceId)
+	if !has {
+		return errors.Errorf("ServiceId %v not found", session.ServiceId)
+	}
+	session.NodeInfo = listener.NodeInfo
+	// New slave
 	slave, err := NewNodeSlave(session)
 	if err != nil {
 		return err
 	}
+	// Response for call
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	value, has := n.taskCenter.Load(slave.Message.TaskId)

@@ -10,7 +10,7 @@ import (
 )
 
 type Request struct {
-	*NodeInfo `json:"nodeInfo"`
+	ServiceId string `json:"serviceId"`
 	// connect | register
 	Method     int             `json:"method"`
 	Attachment json.RawMessage `json:"attachment"`
@@ -25,6 +25,8 @@ type Session struct {
 	Cancel context.CancelFunc
 	// request
 	*Request
+	// serviceInfo
+	*NodeInfo
 	// logger
 	Logger *logrus.Entry
 }
@@ -32,17 +34,17 @@ type Session struct {
 func NewSession(conn net.Conn) (*Session, error) {
 	infoBytes, err := bufio.NewReader(conn).ReadBytes(Delim)
 	if err != nil {
-		return nil, errors.Wrap(err, "node.info length error")
+		return nil, errors.Wrap(err, "request.info length error")
 	}
 	request := new(Request)
 	err = json.Unmarshal(infoBytes, request)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse node.info fail")
+		return nil, errors.Wrap(err, "parse request.info fail")
 	}
 	node := new(Session)
 	node.Request = request
 	node.Context, node.Cancel = context.WithCancel(context.Background())
 	node.Conn = conn
-	node.Logger = logrus.WithField("id", request.Id)
+	node.Logger = logrus.WithField("serviceId", request.ServiceId)
 	return node, nil
 }
