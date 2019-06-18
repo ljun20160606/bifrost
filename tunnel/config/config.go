@@ -20,6 +20,7 @@ type Proxy struct {
 	Name            string `yaml:"name"`
 	Password        string `yaml:"password"`
 	Cipher          string `yaml:"cipher"`
+	Type            string `yaml:"type"`
 }
 
 type Mapping struct {

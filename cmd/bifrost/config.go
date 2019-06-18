@@ -17,6 +17,7 @@ var defaultConfig = Config{
 		BridgeProxyAddr: ":8888",
 		Group:           "tangtangtang",
 		Password:        "20160606",
+		Type:            "socks5",
 	},
 	Mapping: config.Mapping{
 		Addr:            ":8080",

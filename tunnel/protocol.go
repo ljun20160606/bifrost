@@ -55,6 +55,6 @@ func ParseUser(str string) (*NodeInfo, error) {
 }
 
 func NewUUID() string {
-	uuids, _ := uuid.NewV4()
+	uuids := uuid.NewV4()
 	return uuids.String()
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
+	"strings"
 )
 
 var (
@@ -69,6 +70,7 @@ func (a *App) Init() {
 				group := a.Config.Proxy.Group
 				name := a.Config.Proxy.Name
 				password := a.Config.Proxy.Password
+				proxyType := a.Config.Proxy.Type
 
 				nodeInfo := &tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}
 				// SwitchyOmega调试，SwitchyOmega不支持socks5 auth，所以本地再代理一层
@@ -76,7 +78,18 @@ func (a *App) Init() {
 				if err != nil {
 					done <- err
 				}
-				err = tunnelProxy.NoAuthSock5ProxyToSock5(addr, targetAddr, auth)
+
+				lowerProxyType := strings.ToLower(proxyType)
+				var localSkipAuthProxy tunnelProxy.LocalSkipAuthProxy
+				switch lowerProxyType {
+				case "http":
+					localSkipAuthProxy = tunnelProxy.HttpProxyToSock5
+				case "socks5":
+					fallthrough
+				default:
+					localSkipAuthProxy = tunnelProxy.NoAuthSock5ProxyToSocks5
+				}
+				err = localSkipAuthProxy(addr, targetAddr, auth)
 				done <- err
 			}()
 			fmt.Println(<-done)
