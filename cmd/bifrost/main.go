@@ -15,23 +15,21 @@ import (
 	"strings"
 )
 
-var (
-	rootCmd = &cobra.Command{}
-)
-
 type App struct {
 	Config *Config `di:"#.{}"`
 }
 
-func (a *App) Init() {
-	bridgeCmd := &cobra.Command{
+var (
+	rootCmd   = &cobra.Command{}
+	app       = new(App)
+	bridgeCmd = &cobra.Command{
 		Use:   "bridge",
 		Short: "net bridge",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			go func() {
-				addr := a.Config.Bridge.Addr
-				proxyAddr := a.Config.Bridge.ProxyAddr
+				addr := app.Config.Bridge.Addr
+				proxyAddr := app.Config.Bridge.ProxyAddr
 				// 本地网桥启动，网桥地址:7000，代理地址:8888
 				err := bridge.ListenAndServer(addr, proxyAddr)
 				done <- err
@@ -40,12 +38,12 @@ func (a *App) Init() {
 		},
 	}
 
-	serviceCmd := &cobra.Command{
+	serviceCmd = &cobra.Command{
 		Use:   "service",
 		Short: "node service",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 连接到网桥地址
-			client, err := service.New(&a.Config.Service)
+			client, err := service.New(&app.Config.Service)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -59,18 +57,18 @@ func (a *App) Init() {
 		},
 	}
 
-	proxyCmd := &cobra.Command{
+	proxyCmd = &cobra.Command{
 		Use:   "proxy",
 		Short: "local proxy",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
 			go func() {
-				addr := a.Config.Proxy.Addr
-				targetAddr := a.Config.Proxy.BridgeProxyAddr
-				group := a.Config.Proxy.Group
-				name := a.Config.Proxy.Name
-				password := a.Config.Proxy.Password
-				proxyType := a.Config.Proxy.Type
+				addr := app.Config.Proxy.Addr
+				targetAddr := app.Config.Proxy.BridgeProxyAddr
+				group := app.Config.Proxy.Group
+				name := app.Config.Proxy.Name
+				password := app.Config.Proxy.Password
+				proxyType := app.Config.Proxy.Type
 
 				nodeInfo := &tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}
 				// SwitchyOmega调试，SwitchyOmega不支持socks5 auth，所以本地再代理一层
@@ -96,21 +94,21 @@ func (a *App) Init() {
 		},
 	}
 
-	mappingCmd := &cobra.Command{
+	mappingCmd = &cobra.Command{
 		Use:   "mapping",
 		Short: "local mapping agent",
 		Run: func(cmd *cobra.Command, args []string) {
 			done := make(chan error)
-			addr := a.Config.Mapping.Addr
-			targetAddr := a.Config.Mapping.BridgeProxyAddr
-			realAddr := a.Config.Mapping.RealAddr
-			password := a.Config.Mapping.Password
+			addr := app.Config.Mapping.Addr
+			targetAddr := app.Config.Mapping.BridgeProxyAddr
+			realAddr := app.Config.Mapping.RealAddr
+			password := app.Config.Mapping.Password
 			if realAddr == "" {
 				fmt.Println("realAddr can not be null")
 				return
 			}
-			group := a.Config.Mapping.Group
-			name := a.Config.Mapping.Name
+			group := app.Config.Mapping.Group
+			name := app.Config.Mapping.Name
 
 			nodeInfo := &tunnel.NodeInfo{Group: group, Name: name, Id: tunnel.NewUUID(), Password: password}
 			go func() {
@@ -124,25 +122,34 @@ func (a *App) Init() {
 			fmt.Println(<-done)
 		},
 	}
-	rootCmd.AddCommand(bridgeCmd, proxyCmd, serviceCmd, mappingCmd)
-}
+)
 
 func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.JSONFormatter{})
+
+	rootCmd.AddCommand(bridgeCmd, proxyCmd, serviceCmd, mappingCmd)
+
+	// Name of config
+	const bifrostYaml = ".bifrost.yaml"
+	rootCmd.PersistentFlags().StringP("file", "f", bifrostYaml, "Name of .biforst.yaml(Default is '.biforst.yaml')")
+
+	// Load config
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		di.Put(app)
+		configPath := rootCmd.PersistentFlags().Lookup("file").Value.String()
+		err := di.ConfigLoadFile(configPath, di.YAML)
+		if err != nil {
+			fmt.Println(configPath + " not found, use defaultConfig")
+			app.Config = &defaultConfig
+		}
+		di.Start()
+	}
 }
 
 func main() {
-	app := new(App)
-	di.Put(app)
-	const bifrostYaml = ".bifrost.yaml"
-	err := di.ConfigLoadFile(bifrostYaml, di.YAML)
-	if err != nil {
-		fmt.Println(bifrostYaml + " not found, use defaultConfig")
-		app.Config = &defaultConfig
-	}
-	di.Start()
-	err = rootCmd.Execute()
+	// Run
+	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
 	}
