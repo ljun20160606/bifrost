@@ -7,7 +7,7 @@ input="./cmd/bifrost"
 go=go
 
 if [[ "$1" = "" ]];then
-    version=v0.3.0
+    version=v0.3.1
 fi
 
 output="out/"
