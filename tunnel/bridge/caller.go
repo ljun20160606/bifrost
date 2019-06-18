@@ -45,7 +45,7 @@ func (n *NodeCaller) Call(nodeInfo *tunnel.NodeInfo) (*tunnel.Session, error) {
 	channel := NewChannel(10 * time.Second)
 	n.taskCenter.Store(taskId, channel)
 	defer n.taskCenter.Delete(taskId)
-	ok := listener.Notify(&Message{TaskId: taskId,})
+	ok := listener.Notify(&Message{TaskId: taskId})
 	if !ok {
 		return nil, errors.Errorf("service unavailable %v", account)
 	}
