@@ -75,6 +75,8 @@ proxy:
   group: tangtangtang
   # 密码
   password: 123456
+  # 代理类型 http || socks5，默认socks5
+  type: socks5
 mapping:
   # 本地代理地址
   addr: :8080

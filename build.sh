@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 name="bifrost"
 version=$1
@@ -7,7 +7,7 @@ input="./cmd/bifrost"
 go=go
 
 if [[ "$1" = "" ]];then
-    version=v0.2.0
+    version=v0.3.0
 fi
 
 output="out/"
