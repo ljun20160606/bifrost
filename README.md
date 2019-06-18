@@ -18,7 +18,16 @@
 在内网启动`service`，在公网启动`bridge`，使用`socks5`代理连接`bridge`的`proxy`端口即可使用`service`的内网环境，
 所有的请求都会被`service`代理，支持多`bridge`、多`service`的部署方式
 
-根据本地配置`.bifrost.yaml`初始化程序
+从[release](https://github.com/ljun20160606/bifrost/releases)中下载当前系统的程序压缩包，
+解压后里面会包含一份默认配置`.bifrost.yaml`(查看需要 ls -a)，程序会根据配置文件`.bifrost.yaml`初始化程序，
+不过当前版本如果找不到配置也会直接使用代码里预设好的默认配置
+
+也可以自己制定配置文件的位置
+
+```shell
+# -f 可以制定配置文件
+$ bifrost [action] -f ~/.bifrost.yaml
+```
 
 ### 任意访问内网
 
