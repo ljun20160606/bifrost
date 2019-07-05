@@ -37,7 +37,7 @@ func NewServer(bridgeAddr, proxyAddr string) *Server {
 	server := &Server{}
 	server.BridgeServer = &tunnel.Server{
 		Addr:    bridgeAddr,
-		Handler: tunnel.HandlerFunc(server.HandleCommunication),
+		Handler: YamuxHandler(tunnel.HandlerFunc(server.HandleCommunication)),
 	}
 	server.ProxyServer = &tunnel.Server{
 		Addr:    proxyAddr,
@@ -70,39 +70,45 @@ func (s *Server) ListenAndServer() error {
 	return <-errChan
 }
 
-// 处理通信
-func (s *Server) HandleCommunication(conn net.Conn) {
-	defer conn.Close()
-	// Setup server side of yamux
-	session, err := yamux.Server(conn, nil)
-	if err != nil {
-		log.Error("multiplexing fail", err)
-		return
-	}
-
-	for {
-		stream, err := session.Accept()
+func YamuxHandler(handler tunnel.HandlerFunc) tunnel.HandlerFunc {
+	return func(conn net.Conn) {
+		defer conn.Close()
+		// Setup server side of yamux
+		session, err := yamux.Server(conn, nil)
 		if err != nil {
-			if err != io.EOF {
-				log.Error("session accept fail", err)
-			}
+			log.Error("multiplexing fail", err)
 			return
 		}
-		go func() {
-			tunnelSession, err := tunnel.NewSession(stream)
+
+		for {
+			stream, err := session.Accept()
 			if err != nil {
-				log.Error(err)
+				if err != io.EOF {
+					log.Error("session accept fail", err)
+				}
 				return
 			}
-			switch tunnelSession.Method {
-			case tunnel.MethodRegister:
-				s.handleRegister(tunnelSession)
-			case tunnel.MethodConn:
-				s.handleConnect(tunnelSession)
-			default:
-				panic(errors.Errorf("method %v not support", tunnelSession.Method))
-			}
-		}()
+			go func() {
+				handler.Serve(stream)
+			}()
+		}
+	}
+}
+
+// 处理通信
+func (s *Server) HandleCommunication(conn net.Conn) {
+	tunnelSession, err := tunnel.NewSession(conn)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	switch tunnelSession.Method {
+	case tunnel.MethodRegister:
+		s.handleRegister(tunnelSession)
+	case tunnel.MethodConn:
+		s.handleConnect(tunnelSession)
+	default:
+		panic(errors.Errorf("method %v not support", tunnelSession.Method))
 	}
 }
 
