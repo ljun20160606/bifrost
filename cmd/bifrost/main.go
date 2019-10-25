@@ -20,8 +20,18 @@ type App struct {
 }
 
 var (
-	rootCmd   = &cobra.Command{}
-	app       = new(App)
+	rootCmd = &cobra.Command{}
+	app     = new(App)
+	Version string
+
+	versionCmd = &cobra.Command{
+		Use:   "version",
+		Short: "Print the version number of Bifrost",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(Version + " -- HEAD")
+		},
+	}
+
 	bridgeCmd = &cobra.Command{
 		Use:   "bridge",
 		Short: "net bridge",
@@ -128,7 +138,7 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFormatter(&log.JSONFormatter{})
 
-	rootCmd.AddCommand(bridgeCmd, proxyCmd, serviceCmd, mappingCmd)
+	rootCmd.AddCommand(versionCmd, bridgeCmd, proxyCmd, serviceCmd, mappingCmd)
 
 	// Name of config
 	const bifrostYaml = ".bifrost.yaml"
