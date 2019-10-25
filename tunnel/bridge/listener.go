@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"bytes"
 	"encoding/json"
 	"github.com/ljun20160606/bifrost/tunnel"
 	log "github.com/sirupsen/logrus"
@@ -52,43 +51,22 @@ func (s *NodeListener) keepAlive() {
 	}
 }
 
+var heartbeat = []byte{tunnel.Delim}
+
 // Send data in a loop
 func (s *NodeListener) send() {
-	buf := bytes.NewBuffer(nil)
 	for {
-		buf.Reset()
 		var data []byte
-		var wrote bool
 		// 每秒更新心跳或接收数据
 		select {
 		case <-s.Context.Done():
 			return
 		case data = <-s.sendCh:
-			// 标记为已写
-			wrote = true
 		case <-time.After(time.Second):
-			data = []byte{tunnel.Delim}
+			data = heartbeat
 		}
-		buf.Write(data)
 		// 计数
-		var count int
-	COMPOSITE:
-		for {
-			select {
-			case data = <-s.sendCh:
-				if !wrote {
-					buf.Reset()
-				}
-				buf.Write(data)
-				count++
-				if count > 60 {
-					break COMPOSITE
-				}
-			default:
-				break COMPOSITE
-			}
-		}
-		if _, err := s.Write(buf.Bytes()); err != nil {
+		if _, err := s.Write(data); err != nil {
 			log.Error("send fail", err)
 			s.Close()
 			return
