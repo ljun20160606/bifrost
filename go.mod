@@ -12,7 +12,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.4
-	golang.org/x/net v0.0.0-20190603091049-60506f45cf65
+	golang.org/x/net v0.7.0
 	gopkg.in/elazarl/goproxy.v1 v1.0.0-20180725130230-947c36da3153
 	stathat.com/c/consistent v1.0.0
 )
